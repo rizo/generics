@@ -1,0 +1,10 @@
+(library
+ (public_name generic)
+ (modules Generic Witness))
+
+(library
+ (name generic_std)
+ (public_name generic.std)
+ (modules Generic_equal Generic_show Generic_examples Generic_default)
+ (wrapped true)
+ (libraries generic))
