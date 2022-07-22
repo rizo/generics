@@ -66,6 +66,10 @@ module rec Typ : sig
 
     val name : ('variant, 'args) t -> string
     val args : ('variant, 'args) t -> 'args Typ.t option
+
+    val make :
+      ('variant, 'args) t ->
+      [ `const of 'variant | `apply of 'args Typ.t * ('args -> 'variant) ]
   end
 
   module Variant : sig
@@ -156,6 +160,21 @@ end = struct
   end
 
   module Constr = struct
+    (* type ('variant, 'args) make =
+         | MkConst : 'variant -> ('variant, unit) make
+         | MkApply : ('args -> 'variant) -> ('variant, 'args -> 'variant) make
+
+       type ('variant, 'args) t2 = {
+         name : string;
+         args : 'args;
+         make : ('variant, 'args) make;
+       }
+
+       let _r () : ('variant, 'args) t2 =
+         let _ = MkConst 3 in
+         let _ = MkApply (fun _x -> 3) in
+         failwith "" *)
+
     type ('variant, 'args) t =
       | Const : { name : string; value : 'variant } -> ('variant, unit) t
       | Apply : {
@@ -180,10 +199,14 @@ end = struct
       | Const _ -> None
       | Apply apply -> Some apply.args
 
-    (* let make variant_t =
-       match variant_t with
-       | Const const -> `const const.value
-       | Apply apply -> `apply apply.make *)
+    let make :
+        type variant args.
+        (variant, args) t ->
+        [ `const of variant | `apply of args Typ.t * (args -> variant) ] =
+     fun variant_t ->
+      match variant_t with
+      | Const const -> `const const.value
+      | Apply apply -> `apply (apply.args, apply.make)
   end
 
   module Variant = struct
@@ -300,8 +323,7 @@ module type Mapper = sig
   val char : char t
   val string : string t
   val bytes : bytes t
-  val record : mapper -> string -> 'r Field.any list -> 'r t
-  val record' : mapper -> ('r, 'fields) Record.t -> 'r t
+  val record : mapper -> ('r, 'fields) Record.t -> 'r t
   val variant : mapper -> 'variant Variant.t -> 'variant t
   val abstract : mapper -> string -> 'a typ -> 'a t
 end
@@ -319,11 +341,7 @@ module Map (Mapper : Mapper) = struct
     | Char -> Mapper.char
     | String -> Mapper.string
     | Bytes -> Mapper.bytes
-    (* | Record r ->
-       let name = Record.name r in
-       let fields = Record.fields r in
-       Mapper.record self name fields *)
-    | Record r -> Mapper.record' self r
+    | Record r -> Mapper.record self r
     | Variant v -> Mapper.variant self v
     | Abstract a ->
       let name = Typ.Abstract.name a in

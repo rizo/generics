@@ -12,9 +12,10 @@ module Mapper = struct
   let string x = String.concat "" [ "\""; String.escaped x; "\"" ]
   let bytes x = string (Bytes.to_string x)
 
-  let record self _name fields r1 =
+  let record self record_t r1 =
     let fields =
-      fields
+      record_t
+      |> Generic.Record.fields
       |> List.map (fun (Generic.Field.Any field) ->
              let typ = Generic.Field.typ field in
              let show = self.map typ in
@@ -24,8 +25,6 @@ module Mapper = struct
       |> String.concat "\n"
     in
     String.concat "\n" [ "{ "; fields; "}" ]
-
-  let record' _self _r _r1 = failwith "todo"
 
   let variant self variant_t variant =
     let (Generic.Variant.Value (constr, args)) =

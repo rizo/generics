@@ -34,7 +34,8 @@ module Mapper = struct
       equal v1 v2
     | _ -> false
 
-  let record self _name fields r1 r2 =
+  let record self record_t r1 r2 =
+    let fields = Generic.Record.fields record_t in
     List.for_all
       (fun (Generic.Field.Any field) ->
         let ft = Generic.Field.typ field in
@@ -43,8 +44,6 @@ module Mapper = struct
         let eq = self.map ft in
         eq v1 v2)
       fields
-
-  let record' _self _r _r1 _r2 = failwith "todo"
 
   let variant self variant_t variant1 variant2 =
     let (Generic.Variant.Value (c1, args1)) =

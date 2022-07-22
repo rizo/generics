@@ -11,9 +11,8 @@ module Mapper = struct
   let char () = '\000'
   let string () = ""
   let bytes () = Bytes.of_string ""
-  let record _self _name _fields () = failwith "TODO"
 
-  let record' self record () =
+  let record self record () =
     let rec loop : type r f. f -> (r, f) Generic.Field.list -> r =
      fun m fs ->
       match fs with
@@ -28,16 +27,18 @@ module Mapper = struct
     let fields = Generic.Record.fields' record in
     loop make fields
 
-  let variant _self variant_t =
+  let variant self variant_t () =
     let constr_list = Generic.Variant.constr_list variant_t in
     let (Generic.Variant.Constr constr) = List.hd constr_list in
-    match Generic.Constr.args constr with
-    | Some _args_t -> failwith ""
-    | None -> failwith ""
+    match Generic.Constr.make constr with
+    | `const variant -> variant
+    | `apply (args_t, make) ->
+      let args = self.map args_t () in
+      make args
 
-  let abstract self _name (t : 'a Generic.t) x =
-    let show = self.map t in
-    show x
+  let abstract self _name (t : 'a Generic.t) () =
+    let default = self.map t in
+    default ()
 end
 
 module Map = Generic.Map (Mapper)
