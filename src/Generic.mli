@@ -54,7 +54,9 @@ module Field : sig
 
   type ('record, 'fields) list =
     | [] : ('record, 'record) list
-    | ( :: ) : ('record, 'a) t * ('record, 'fields) list -> ('record, 'a -> 'fields) list
+    | ( :: ) :
+        ('record, 'a) t * ('record, 'fields) list
+        -> ('record, 'a -> 'fields) list
 
   val name : ('record, 'a) t -> string
   val typ : ('record, 'a) t -> 'a typ
@@ -65,17 +67,16 @@ val field : string -> 'a t -> ('t -> 'a) -> ('t, 'a) Field.t
 
 module Record : sig
   type ('record, 'fields) t
-  (** The runtime representation of records of type ['record] with fields of type
-      ['fields].
-      
-      The type variable ['fields] is the function type from field values to the record. *)
+  (** The runtime representation of records of type ['record] with fields of
+      type ['fields].
+
+      The type variable ['fields] is the function type from field values to the
+      record. *)
 
   val name : ('record, 'fields) t -> string
   val fields : ('record, 'fields) t -> 'record Field.any list
   val fields' : ('record, 'fields) t -> ('record, 'fields) Field.list
-
-  val map : ('record Field.any -> 'b)  -> ('record, 'fields) t -> 'b list
-
+  val map : ('record Field.any -> 'b) -> ('record, 'fields) t -> 'b list
   val fold : ('a -> 'record Field.any -> 'a) -> 'a -> ('record, 'fields) t -> 'a
 
   val make : ('record, 'fields) t -> 'fields
@@ -87,32 +88,47 @@ val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record typ
 
 (** {1 Variants} *)
 
-module Case : sig
-  type ('variant, 'a) t
-  type 'variant any = Any : ('variant, 'a) t -> 'variant any
+module Constr : sig
+  type ('variant, 'args) t
 
-  val const : string -> 'variant -> 'variant any
+  type ('variant, 'args) make =
+    | Const : 'variant -> ('variant, unit) make
+    | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) make
 
-  val apply :
-    string -> 'args typ -> 'args -> ('args -> 'variant) -> 'variant any
-
-  val name : ('variant, 'a) t -> string
-  val args : ('variant, 'args) t -> ('args typ * 'args) option
+  val name : ('variant, 'args) t -> string
+  val args : ('variant, 'args) t -> 'args typ option
+  val make : ('variant, 'args) t -> ('variant, 'args) make
 end
 
 module Variant : sig
   type 'variant t
 
+  type 'variant constr =
+    | Constr : ('variant, 'args) Constr.t -> 'variant constr
+
+  type 'variant value =
+    | Value : ('variant, 'args) Constr.t * 'args -> 'variant value
+
+  val value : ('variant, 'args) Constr.t -> 'args -> 'variant value
   val name : 'variant t -> string
-  val get : 'variant t -> 'variant -> 'variant Case.any
+  val view : 'variant t -> 'variant -> 'variant value
+  val constr_list : 'variant t -> 'variant constr list
 end
 
-val variant : string -> ('variant -> 'variant Case.any) -> 'variant typ
+val constr :
+  string -> ('variant, 'args) Constr.make -> ('variant, 'args) Constr.t
+
+val variant :
+  string ->
+  'variant Variant.constr list ->
+  ('variant -> 'variant Variant.value) ->
+  'variant t
 (** Variant representation.
 
-    [varinat name view] is the runtime representation of a variant type where
-    [name] is the type name of the variant and [view] is a function that maps
-    every variant constructor to its runtime representation as a {!t:Case.t}. *)
+    [varinat name constr_list view] is the runtime representation of a variant
+    type with constructors described by [constr_list] where [name] is the type
+    name of the variant and [view] is a function that maps every variant
+    constructor to its runtime representation as a {!t:Case.t}. *)
 
 (** {1 Abstract types} *)
 
@@ -148,11 +164,8 @@ module type Mapper = sig
   val char : char t
   val string : string t
   val bytes : bytes t
-  val record : mapper -> string -> 'r Field.any list -> 'r t
-
-  val variant :
-    mapper -> string -> ('variant -> 'variant Case.any) -> 'variant t
-
+  val record : mapper -> ('r, 'fields) Record.t -> 'r t
+  val variant : mapper -> 'variant Variant.t -> 'variant t
   val abstract : mapper -> string -> 'a typ -> 'a t
 end
 

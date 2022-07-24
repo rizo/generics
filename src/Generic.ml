@@ -1,4 +1,59 @@
-type void = { void : 'a. 'a }
+(*
+
+  typ
+  dyn
+  any
+
+  Field.t
+  Field.name
+  Field.typ
+  Field.get : ('record, 'a) t -> 'record -> 'a
+  Field.map : ('record, 'a) t -> ('a -> 'a) -> 'record -> 'record
+  Field.set : ('record, 'a) t -> 'a -> 'record -> unit
+
+  Record.t
+  Record.name
+  Record.fields
+  Record.map
+  Record.fold
+  Record.make
+
+  Constr.t
+
+  Constr.const
+  Constr.apply
+
+  constr "None" (Const None)
+  constr "Some" (Args (t, fun x -> Some x))
+
+  constr "None" Typ.unit (fun () -> None)
+  constr "Some" some_t (fun x -> Some x)
+
+  Variant.t
+
+  Abstract.t
+
+
+  const
+  case0
+  tag
+  variant
+  args
+  constructor
+  constr
+  Case.const
+  Case.args
+
+  case (Const Blue)
+  case (Args (fun rgb -> Rgb rgb))
+
+  constr (Const Blue)
+  constr (Args (int * int * int) (fun rgb -> Rgb rgb))
+
+  Case.const Blue
+  Case.apply Typ.int rgb (fun rgb -> Rgb rgb)
+
+  *)
 
 module rec Typ : sig
   type _ t =
@@ -59,17 +114,13 @@ module rec Typ : sig
   module Constr : sig
     type ('variant, 'args) t
 
-    val const : string -> 'variant -> ('variant, unit) t
-
-    val apply :
-      string -> 'args Typ.t -> ('args -> 'variant) -> ('variant, 'args) t
+    type ('variant, 'args) make =
+      | Const : 'variant -> ('variant, unit) make
+      | Args : 'args Typ.t * ('args -> 'variant) -> ('variant, 'args) make
 
     val name : ('variant, 'args) t -> string
     val args : ('variant, 'args) t -> 'args Typ.t option
-
-    val make :
-      ('variant, 'args) t ->
-      [ `const of 'variant | `apply of 'args Typ.t * ('args -> 'variant) ]
+    val make : ('variant, 'args) t -> ('variant, 'args) make
   end
 
   module Variant : sig
@@ -89,6 +140,9 @@ module rec Typ : sig
 
   val field : string -> 'a t -> ('record -> 'a) -> ('record, 'a) Field.t
   val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record t
+
+  val constr :
+    string -> ('variant, 'args) Constr.make -> ('variant, 'args) Constr.t
 
   val variant :
     string ->
@@ -160,53 +214,22 @@ end = struct
   end
 
   module Constr = struct
-    (* type ('variant, 'args) make =
-         | MkConst : 'variant -> ('variant, unit) make
-         | MkApply : ('args -> 'variant) -> ('variant, 'args -> 'variant) make
+    type ('variant, 'args) make =
+      | Const : 'variant -> ('variant, unit) make
+      | Args : 'args Typ.t * ('args -> 'variant) -> ('variant, 'args) make
 
-       type ('variant, 'args) t2 = {
-         name : string;
-         args : 'args;
-         make : ('variant, 'args) make;
-       }
+    type ('variant, 'args) t = { name : string; make : ('variant, 'args) make }
 
-       let _r () : ('variant, 'args) t2 =
-         let _ = MkConst 3 in
-         let _ = MkApply (fun _x -> 3) in
-         failwith "" *)
-
-    type ('variant, 'args) t =
-      | Const : { name : string; value : 'variant } -> ('variant, unit) t
-      | Apply : {
-          name : string;
-          args : 'args Typ.t;
-          make : 'args -> 'variant;
-        }
-          -> ('variant, 'args) t
-
-    let const name value = Const { name; value }
-    let apply name args make = Apply { name; args; make }
-
-    let name : type variant args. (variant, args) t -> string =
-     fun t ->
-      match t with
-      | Const t -> t.name
-      | Apply t -> t.name
+    let name : type variant args. (variant, args) t -> string = fun t -> t.name
 
     let args : type variant args. (variant, args) t -> args Typ.t option =
      fun t ->
-      match t with
+      match t.make with
       | Const _ -> None
-      | Apply apply -> Some apply.args
+      | Args (args_t, _make) -> Some args_t
 
-    let make :
-        type variant args.
-        (variant, args) t ->
-        [ `const of variant | `apply of args Typ.t * (args -> variant) ] =
-     fun variant_t ->
-      match variant_t with
-      | Const const -> `const const.value
-      | Apply apply -> `apply (apply.args, apply.make)
+    let make : type variant args. (variant, args) t -> (variant, args) make =
+     fun variant_t -> variant_t.make
   end
 
   module Variant = struct
@@ -264,6 +287,8 @@ end = struct
         witness = Witness.make ();
       }
 
+  let constr name make = { Constr.name; make }
+
   let variant name constr_list view =
     Typ.Variant { Variant.name; constr_list; view; witness = Witness.make () }
 
@@ -286,8 +311,8 @@ let string = Typ.String
 let bytes = Typ.Bytes
 
 let option t =
-  let none_constr = Typ.Constr.const "None" None in
-  let some_constr = Typ.Constr.apply "Some" t (fun x -> Some x) in
+  let none_constr = Typ.constr "None" (Const None) in
+  let some_constr = Typ.constr "Some" (Args (t, fun x -> Some x)) in
   let view = function
     | None -> Typ.Variant.Value (none_constr, ())
     | Some x -> Typ.Variant.Value (some_constr, x)
@@ -297,8 +322,8 @@ let option t =
     view
 
 let result ok_t error_t =
-  let ok_constr = Typ.Constr.apply "Ok" ok_t (fun x -> Ok x) in
-  let error_constr = Typ.Constr.apply "Some" error_t (fun x -> Error x) in
+  let ok_constr = Typ.constr "Ok" (Args (ok_t, fun x -> Ok x)) in
+  let error_constr = Typ.constr "Some" (Args (error_t, fun x -> Error x)) in
   let view result =
     match result with
     | Ok x -> Typ.Variant.Value (ok_constr, x)
@@ -349,153 +374,4 @@ module Map (Mapper : Mapper) = struct
       Mapper.abstract self name typ
 
   and self = { Mapper.map }
-end
-
-(*
-  const
-  case0
-  tag
-  variant
-  args
-  constructor
-  constr
-  Case.const
-  Case.args
-
-  case (Const Blue)
-  case (Args (fun rgb -> Rgb rgb))
-
-  constr (Const Blue)
-  constr (Args (int * int * int) (fun rgb -> Rgb rgb))
-
-  Case.const Blue
-  Case.apply Typ.int rgb (fun rgb -> Rgb rgb)
-  *)
-
-module X1 = struct
-  type no_args
-  type 'args args = Args of 'args
-
-  type ('variant, 'make) case =
-    | Const : { name : string; value : 'variant } -> ('variant, 'variant) case
-    | Apply : {
-        name : string;
-        args : 'args Typ.t;
-        make : 'args -> 'variant;
-      }
-        -> ('variant, 'args -> 'variant) case
-
-  let none = Const { name = "None"; value = None }
-  let some args = Apply { name = "Some"; args; make = (fun x -> Some x) }
-
-  let make : type variant make. (variant, make) case -> make =
-   fun case ->
-    match case with
-    | Const const -> const.value
-    | Apply apply -> apply.make
-
-  let (_ : 'a option) = make none
-  let (_ : 'a option) = make (some Typ.Int) 42
-end
-
-module X2 = struct
-  type no_args
-  type !'args args
-
-  type ('variant, 'args) case =
-    | Const : { name : string; value : 'variant } -> ('variant, no_args) case
-    | Apply : {
-        name : string;
-        args : 'args Typ.t;
-        make : 'args -> 'variant;
-      }
-        -> ('variant, 'args args) case
-
-  let none = Const { name = "None"; value = None }
-  let some args = Apply { name = "Some"; args; make = (fun x -> Some x) }
-
-  let make_const : type variant. (variant, no_args) case -> variant =
-   fun case ->
-    match case with
-    | Const const -> const.value
-
-  let make_apply : type variant. (variant, 'args args) case -> 'args -> variant
-      =
-   fun case ->
-    match case with
-    | Apply apply -> apply.make
-
-  let (_ : 'a option) = make_const none
-  let (_ : 'a option) = make_apply (some Typ.Int) 42
-end
-
-module X3 = struct
-  type no_args
-  type !'args args
-
-  type ('variant, 'args) case =
-    | Const : { name : string; value : 'variant } -> ('variant, no_args) case
-    | Apply : {
-        name : string;
-        args : 'args Typ.t;
-        make : 'args -> 'variant;
-      }
-        -> ('variant, 'args args) case
-
-  type ('variant, 'make) make =
-    | MkConst : ('variant, no_args) case -> ('variant, 'variant) make
-    | MkApply :
-        ('variant, 'args args) case
-        -> ('variant, 'args -> 'variant) make
-
-  let none = Const { name = "None"; value = None }
-  let some args = Apply { name = "Some"; args; make = (fun x -> Some x) }
-
-  let make : type variant args. (variant, args) make -> args =
-   fun case ->
-    match case with
-    | MkConst (Const const) -> const.value
-    | MkApply (Apply apply) -> apply.make
-
-  let (_ : 'a option) = make (MkConst none)
-  let (_ : 'a option) = make (MkApply (some Typ.Int)) 42
-end
-
-module X4 = struct
-  module Constr = struct
-    type ('variant, 'args) make =
-      | Const : 'variant -> ('variant, unit) make
-      | Args : 'args Typ.t * ('args -> 'variant) -> ('variant, 'args) make
-
-    type ('variant, 'args) t = { name : string; make : ('variant, 'args) make }
-  end
-
-  module Variant = struct
-    type 'variant constr =
-      | Constr : ('variant, 'args) Constr.t -> 'variant constr
-
-    type 'variant value =
-      | Value : ('varaint, 'args) Constr.t * 'args -> 'variant value
-
-    let value : ('variant, 'args) Constr.t -> 'args -> 'variant value =
-     fun constr value -> Value (constr, value)
-
-    type 'variant t = {
-      constrs : 'variant constr list;
-      view : 'variant -> 'variant value;
-    }
-  end
-
-  let constr name make : ('variant, 'args) Constr.t = { name; make }
-  let variant constrs view = { Variant.constrs; view }
-
-  let option t =
-    let none_constr = constr "None" (Const None) in
-    let some_constr = constr "Some" (Args (t, fun x -> Some x)) in
-    let view variant =
-      match variant with
-      | None -> Variant.value none_constr ()
-      | Some x -> Variant.value some_constr x
-    in
-    variant [ Variant.Constr none_constr; Variant.Constr some_constr ] view
 end

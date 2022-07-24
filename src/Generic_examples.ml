@@ -1,11 +1,11 @@
 type color = Red | Green | Blue | Rgb of int
 
 let color_t =
-  let red_constr = Generic.Constr.const "Red" Red in
-  let green_constr = Generic.Constr.const "Green" Green in
-  let blue_constr = Generic.Constr.const "Blue" Blue in
+  let red_constr = Generic.constr "Red" (Const Red) in
+  let green_constr = Generic.constr "Green" (Const Green) in
+  let blue_constr = Generic.constr "Blue" (Const Blue) in
   let rgb_constr =
-    Generic.Constr.apply "Rgb" Generic.int (fun rgb -> Rgb rgb)
+    Generic.constr "Rgb" (Args (Generic.int, fun rgb -> Rgb rgb))
   in
 
   (* let (_ : color) = Generic.Case.make red_constr in

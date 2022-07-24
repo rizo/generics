@@ -5,6 +5,11 @@
 (library
  (name generic_std)
  (public_name generic.std)
- (modules Generic_equal Generic_show Generic_examples Generic_default)
+ (modules
+  Generic_equal
+  Generic_show
+  Generic_examples
+  Generic_default
+  Generic_experiments)
  (wrapped true)
  (libraries generic))
