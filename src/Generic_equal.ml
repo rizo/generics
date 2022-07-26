@@ -35,7 +35,7 @@ module Mapper = struct
     | _ -> false
 
   let record self record_t r1 r2 =
-    let fields = Generic.Record.fields record_t in
+    let fields = Generic.Record.any_fields record_t in
     List.for_all
       (fun (Generic.Field.Any field) ->
         let ft = Generic.Field.typ field in

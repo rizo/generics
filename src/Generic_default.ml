@@ -24,7 +24,7 @@ module Mapper = struct
         loop m' fs'
     in
     let make = Generic.Record.make record in
-    let fields = Generic.Record.fields' record in
+    let fields = Generic.Record.fields record in
     loop make fields
 
   let variant self variant_t =

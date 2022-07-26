@@ -65,28 +65,49 @@ module Field : sig
   val get : 'record -> ('record, 'a) t -> 'a
 end
 
-val field : string -> 'a t -> ('t -> 'a) -> ('t, 'a) Field.t
+val field : string -> 'a t -> ('record -> 'a) -> ('record, 'a) Field.t
+(** [field name field_t get : ('record, 'a) Field.t] is the runtime
+    representation of the field with type ['a], represented by [field_t],
+    belonging to the record ['record]. See the {!module:Field} module for more
+    operations on fields. *)
 
 module Record : sig
-  type ('record, 'fields) t
-  (** The runtime representation of records of type ['record] with fields of
-      type ['fields].
+  type ('record, 'make) t
+  (** The runtime representation of records of type ['record].
 
-      The type variable ['fields] is the function type from field values to the
-      record. *)
+      The type variable ['make] is the function type from field values to the
+      record value. For example the record:
 
-  val name : ('record, 'fields) t -> string
-  val fields : ('record, 'fields) t -> 'record Field.any list
-  val fields' : ('record, 'fields) t -> ('record, 'fields) Field.list
-  val map : ('record Field.any -> 'b) -> ('record, 'fields) t -> 'b list
-  val fold : ('a -> 'record Field.any -> 'a) -> 'a -> ('record, 'fields) t -> 'a
+      {[
+        type r1 = { foo : int; bar : float list }
+      ]}
 
-  val make : ('record, 'fields) t -> 'fields
-  (** [make record] is a smart constructor function for [record] represented as
-      a function from fields to record of type ['record]. *)
+      ...has the type [(r1, int -> float list -> r1) Record.t]. This can be used
+      to dynamically create record values given a list of fields (see
+      {!val:Record.make}).*)
+
+  val name : ('record, 'make) t -> string
+  (** The name of the record type. *)
+
+  val any_fields : ('record, 'make) t -> 'record Field.any list
+  (** [any_fields record] is the list of all [record]'s fields represented as a
+      list of {!type:Field.any} to allow for uniform representation of
+      individual fields. *)
+
+  val fields : ('record, 'make) t -> ('record, 'make) Field.list
+  (** [fields record] is the list of all [record]'s fields represented as
+      {!type:Field.list} to preserve the types of individual fields. *)
+
+  val make : ('record, 'make) t -> 'make
+  (** [make record] is a smart constructor function for the [record] represented
+      as a function from fields to record of type ['record]. *)
 end
 
-val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record typ
+val record : string -> ('record, 'make) Field.list -> 'make -> 'record typ
+(** [record name fields make] is the runtime representation of the record type
+    with a given [name] and [fields]. The function [make] can be used to create
+    the record value from field values. See the {!module:Record} module for more
+    operations on records. *)
 
 (** {1 Variants} *)
 
@@ -137,6 +158,19 @@ module Constr : sig
       The constructor can either be constant or have arguments. *)
 end
 
+val constr :
+  string -> ('variant, 'args) Constr.args -> ('variant, 'args) Constr.t
+(** [constr name make : ('variant, 'args) Constr.t] is the runtime
+    representation of the constructor with arguments of type ['args] belonging
+    to the variant ['variant].
+
+    The [make] argument is either [Const c], for a constant constructor [c], or
+    [Args (args_t, variant_of_args)] that represents the constructor with
+    arguments fo type [arg_t], where [variant_of_args] is the function from
+    constructor arguments to the variant value.
+
+    See the {!module:Constr} module for more operations on constructors. *)
+
 module Variant : sig
   type 'variant t
 
@@ -144,9 +178,6 @@ module Variant : sig
   val value : 'variant t -> 'variant -> 'variant Constr.value
   val constr_list : 'variant t -> 'variant Constr.any list
 end
-
-val constr :
-  string -> ('variant, 'args) Constr.args -> ('variant, 'args) Constr.t
 
 val variant :
   string ->
@@ -158,7 +189,7 @@ val variant :
     [varinat name constr_list value] is the runtime representation of a variant
     type with constructors described by [constr_list] where [name] is the type
     name of the variant and [value] is a function that maps every variant
-    constructor to its runtime representation as a {!t:Constr.value}. *)
+    constructor to its runtime representation as a {!type:Constr.value}. *)
 
 (** {1 Abstract types} *)
 
@@ -170,6 +201,15 @@ module Abstract : sig
 end
 
 val abstract : string -> 'a typ -> 'a typ
+
+(** {1 Dynamic types} *)
+module Dyn : sig
+  type 'a t = 'a dyn
+  type any = Any : 'a dyn -> any
+
+  val typ : 'a dyn -> 'a typ
+  val value : 'a dyn -> 'a
+end
 
 (** {1 Type representation equality} *)
 

@@ -152,13 +152,8 @@ module rec Typ : sig
     type ('record, 'fields) t
 
     val name : ('record, 'fields) t -> string
-    val fields : ('record, 'fields) t -> 'record Typ.Field.any list
-    val fields' : ('record, 'fields) t -> ('record, 'fields) Typ.Field.list
-    val map : ('record Field.any -> 'b) -> ('record, 'fields) t -> 'b list
-
-    val fold :
-      ('a -> 'record Field.any -> 'a) -> 'a -> ('record, 'fields) t -> 'a
-
+    val any_fields : ('record, 'fields) t -> 'record Typ.Field.any list
+    val fields : ('record, 'fields) t -> ('record, 'fields) Typ.Field.list
     val make : ('record, 'fields) t -> 'fields
   end
 
@@ -254,10 +249,8 @@ end = struct
     }
 
     let name t = t.name
-    let fields t = t.fields
-    let fields' t = t.fields'
-    let map f t = List.map f t.fields
-    let fold f init t = List.fold_left f init t.fields
+    let any_fields t = t.fields
+    let fields t = t.fields'
     let make t = t.make
   end
 
@@ -370,6 +363,14 @@ let result ok_t error_t =
   Typ.variant "result"
     [ Typ.Constr.Any ok_constr; Typ.Constr.Any error_constr ]
     value
+
+module Dyn = struct
+  type 'a t = 'a dyn
+  type any = Any : 'a dyn -> any
+
+  let typ (t, _) = t
+  let value (_, v) = v
+end
 
 type ('a, 'b) equal = ('a, 'b) Witness.equal = Equal : ('a, 'a) equal
 
