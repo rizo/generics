@@ -10,6 +10,8 @@ type 'a dyn = 'a t * 'a
 (** Type representation value with existential variable. *)
 type any = Any : 'a t -> any
 
+(** {1 Basic types} *)
+
 val unit : unit typ
 (** Runtime representation for unit values. *)
 
@@ -89,46 +91,74 @@ val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record typ
 (** {1 Variants} *)
 
 module Constr : sig
-  type ('variant, 'args) t
+  (** Constructors can either be constant or take one or more arguments.
 
-  type ('variant, 'args) make =
-    | Const : 'variant -> ('variant, unit) make
-    | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) make
+      The following example demonstrates how to encode the runtime
+      representation of the option type provided in the standard library.
+
+      {[
+        type 'a option = None | Some of 'a
+
+        let option t =
+          let open Generic in
+          let none_constr = constr "None" (Const None) in
+          let some_constr = constr "Some" (Args (t, fun x -> Some x)) in
+          let value = function
+            | None -> Constr.Value (none_constr, ())
+            | Some x -> Constr.Value (some_constr, x)
+          in
+          variant "option"
+            [ Constr.Any none_constr; Constr.Any some_constr ]
+            value
+      ]} *)
+
+  type ('variant, 'args) t
+  (** The runtime representation of constructors for the variant type ['variant]
+      with arguments of type ['args]. *)
+
+  (** The runtime representation of constructor arguments. *)
+  type ('variant, 'args) args =
+    | Const : 'variant -> ('variant, unit) args
+    | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) args
+
+  (** The runtime representation of a constructor with arguments. *)
+  type 'variant value = Value : ('variant, 'args) t * 'args -> 'variant value
+
+  (** The constructor with the hidden representation of the arguments. *)
+  type 'variant any = Any : ('variant, 'args) t -> 'variant any
 
   val name : ('variant, 'args) t -> string
-  val args : ('variant, 'args) t -> 'args typ option
-  val make : ('variant, 'args) t -> ('variant, 'args) make
+  (** The name of the constructor. *)
+
+  val args : ('variant, 'args) t -> ('variant, 'args) args
+  (** [args constr] is the representation of the arguments of constructor
+      [constr].
+
+      The constructor can either be constant or have arguments. *)
 end
 
 module Variant : sig
   type 'variant t
 
-  type 'variant constr =
-    | Constr : ('variant, 'args) Constr.t -> 'variant constr
-
-  type 'variant value =
-    | Value : ('variant, 'args) Constr.t * 'args -> 'variant value
-
-  val value : ('variant, 'args) Constr.t -> 'args -> 'variant value
   val name : 'variant t -> string
-  val view : 'variant t -> 'variant -> 'variant value
-  val constr_list : 'variant t -> 'variant constr list
+  val value : 'variant t -> 'variant -> 'variant Constr.value
+  val constr_list : 'variant t -> 'variant Constr.any list
 end
 
 val constr :
-  string -> ('variant, 'args) Constr.make -> ('variant, 'args) Constr.t
+  string -> ('variant, 'args) Constr.args -> ('variant, 'args) Constr.t
 
 val variant :
   string ->
-  'variant Variant.constr list ->
-  ('variant -> 'variant Variant.value) ->
+  'variant Constr.any list ->
+  ('variant -> 'variant Constr.value) ->
   'variant t
 (** Variant representation.
 
-    [varinat name constr_list view] is the runtime representation of a variant
+    [varinat name constr_list value] is the runtime representation of a variant
     type with constructors described by [constr_list] where [name] is the type
-    name of the variant and [view] is a function that maps every variant
-    constructor to its runtime representation as a {!t:Case.t}. *)
+    name of the variant and [value] is a function that maps every variant
+    constructor to its runtime representation as a {!t:Constr.value}. *)
 
 (** {1 Abstract types} *)
 

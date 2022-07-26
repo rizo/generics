@@ -27,13 +27,13 @@ module Mapper = struct
     String.concat "\n" [ "{ "; fields; "}" ]
 
   let variant self variant_t variant =
-    let (Generic.Variant.Value (constr, args)) =
-      Generic.Variant.view variant_t variant
+    let (Generic.Constr.Value (constr, args)) =
+      Generic.Variant.value variant_t variant
     in
     let constr_name = Generic.Constr.name constr in
     match Generic.Constr.args constr with
-    | None -> constr_name
-    | Some args_t ->
+    | Const _ -> constr_name
+    | Args (args_t, _) ->
       let show_args = self.map args_t args in
       String.concat " " [ constr_name; show_args ]
 

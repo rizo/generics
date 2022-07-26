@@ -126,7 +126,7 @@ module X4 = struct
     variant [ Variant.Constr none_constr; Variant.Constr some_constr ] view
 end
 
-module X5 = struct
+module X5_broken = struct
   module Constr = struct
     type ('variant, 'args) args = ('args Generic.t * ('args -> 'variant)) option
     type ('variant, 'args) t = { name : string; args : ('variant, 'args) args }
@@ -173,4 +173,74 @@ module X5 = struct
         Variant.Constr rgb_constr;
       ]
       view
+end
+
+module X6 = struct
+  module Constr = struct
+    type 'variant const = { name : string; value : 'variant }
+
+    type ('variant, 'args) with_args = {
+      name : string;
+      args : 'args Generic.t;
+      make : 'args -> 'variant;
+    }
+
+    type 'variant t =
+      | Const : 'variant const -> 'variant t
+      | With_args : ('variant, 'args) with_args -> 'variant t
+
+    let const name value = { name; value }
+    let with_args name args make = { name; args; make }
+  end
+
+  module Variant = struct
+    type 'variant value =
+      | Const : 'variant Constr.const -> 'variant value
+      | With_args : ('variant, 'args) Constr.with_args * 'args -> 'variant value
+
+    type 'variant t = {
+      constr_list : 'variant Constr.t list;
+      view : 'variant -> 'variant value;
+    }
+  end
+
+  let variant constr_list view = { Variant.constr_list; view }
+
+  type color = Red | Green | Blue | Rgb of int
+
+  let color_t =
+    let red_constr = Constr.const "Red" Red in
+    let green_constr = Constr.const "Green" Green in
+    let blue_constr = Constr.const "Blue" Blue in
+    let rgb_constr = Constr.with_args "Rgb" Generic.int (fun x -> Rgb x) in
+    let view variant =
+      match variant with
+      | Red -> Variant.Const red_constr
+      | Green -> Variant.Const green_constr
+      | Blue -> Variant.Const blue_constr
+      | Rgb x -> Variant.With_args (rgb_constr, x)
+    in
+    variant
+      [
+        Constr.Const red_constr;
+        Constr.Const green_constr;
+        Constr.Const blue_constr;
+        Constr.With_args rgb_constr;
+      ]
+      view
+end
+
+module type X7 = sig
+  type 'a typ
+  type 't variant
+  type ('variant, 'args) constr
+  type 'a constr_val
+
+  val constr_const : string -> 'variant -> ('variant, unit) constr
+
+  val constr_args :
+    string -> 'args typ -> ('args -> 'variant) -> ('variant, 'args) constr
+
+  val constr_const_val : ('variant, unit) constr -> 'variant constr_val
+  val constr_args_val : ('variant, 'args) constr -> 'args -> 'variant constr_val
 end

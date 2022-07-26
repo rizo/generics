@@ -12,16 +12,16 @@ let color_t =
      let (_ : color) = Generic.Case.make rgb_constr 42 in *)
   Generic.variant "color"
     [
-      Generic.Variant.Constr rgb_constr;
-      Generic.Variant.Constr red_constr;
-      Generic.Variant.Constr green_constr;
-      Generic.Variant.Constr blue_constr;
+      Generic.Constr.Any rgb_constr;
+      Generic.Constr.Any red_constr;
+      Generic.Constr.Any green_constr;
+      Generic.Constr.Any blue_constr;
     ] (fun variant ->
       match variant with
-      | Red -> Generic.Variant.Value (red_constr, ())
-      | Green -> Generic.Variant.Value (green_constr, ())
-      | Blue -> Generic.Variant.Value (blue_constr, ())
-      | Rgb rgb -> Generic.Variant.Value (rgb_constr, rgb))
+      | Red -> Generic.Constr.Value (red_constr, ())
+      | Green -> Generic.Constr.Value (green_constr, ())
+      | Blue -> Generic.Constr.Value (blue_constr, ())
+      | Rgb rgb -> Generic.Constr.Value (rgb_constr, rgb))
 
 type person = {
   name : string;

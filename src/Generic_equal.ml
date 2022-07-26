@@ -46,20 +46,20 @@ module Mapper = struct
       fields
 
   let variant self variant_t variant1 variant2 =
-    let (Generic.Variant.Value (c1, args1)) =
-      Generic.Variant.view variant_t variant1
+    let (Generic.Constr.Value (c1, args1)) =
+      Generic.Variant.value variant_t variant1
     in
-    let (Generic.Variant.Value (c2, args2)) =
-      Generic.Variant.view variant_t variant2
+    let (Generic.Constr.Value (c2, args2)) =
+      Generic.Variant.value variant_t variant2
     in
     let n1 = Generic.Constr.name c1 in
     let n2 = Generic.Constr.name c2 in
     if string n1 n2 then
       match (Generic.Constr.args c1, Generic.Constr.args c2) with
-      | None, None -> true
-      | Some t1, Some t2 -> (
-        match Generic.equal t1 t2 with
-        | Some Equal -> self.map t1 args1 args2
+      | Const _, Const _ -> true
+      | Args (args1_t, _), Args (args2_t, _) -> (
+        match Generic.equal args1_t args2_t with
+        | Some Equal -> self.map args1_t args1 args2
         | None -> false)
       | _ -> false
     else false

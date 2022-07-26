@@ -4,6 +4,26 @@
   dyn
   any
 
+  record, field, variant, constructor, constructor value
+
+  Record
+  Field
+  Variant
+  Constr
+  Constr_val
+  Constr_val
+
+  Constr.const
+  Constr.with_args
+
+  Constr_val.const
+  Constr_val.with_args
+
+  Constr.Val.const
+  Constr.Val.with_args
+
+  Variant.Constr
+
   Field.t
   Field.name
   Field.typ
@@ -25,6 +45,37 @@
 
   constr "None" (Const None)
   constr "Some" (Args (t, fun x -> Some x))
+
+
+  constr "Red" ?args:None Red
+  constr "Rgb" ~args:Typ.int (fun x -> Rgb x)
+
+  val constr : string -> ?args:'args -> 'make -> ('variant, 'make) constr
+
+  type ('variant, 'make) constr =
+    {
+      name : string;
+      args : 'args option;
+      make : 'make;
+    }
+
+
+  constr_const "Red" Red
+  constr_args "Rgb" Typ.int (fun x -> Rgb x)
+
+  val constr_const : string -> 'variant -> 'variant constr_const
+  val constr_args : string -> 'args typ -> ('args -> 'variant -> ('variant, 'args) constr_args
+
+  type 'variant constr_const = {
+    name : string;
+    value : 'variant;
+  }
+
+  type ('variant, 'args) constr_args = {
+    name : string;
+    args : 'args typ;
+    make : 'args -> 'variant;
+  }
 
   constr "None" Typ.unit (fun () -> None)
   constr "Some" some_t (fun x -> Some x)
@@ -114,40 +165,37 @@ module rec Typ : sig
   module Constr : sig
     type ('variant, 'args) t
 
-    type ('variant, 'args) make =
-      | Const : 'variant -> ('variant, unit) make
-      | Args : 'args Typ.t * ('args -> 'variant) -> ('variant, 'args) make
+    type ('variant, 'args) args =
+      | Const : 'variant -> ('variant, unit) args
+      | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) args
+
+    type 'variant value =
+      | Value : ('variant, 'args) t * 'args -> 'variant value
+
+    type 'variant any = Any : ('variant, 'args) t -> 'variant any
 
     val name : ('variant, 'args) t -> string
-    val args : ('variant, 'args) t -> 'args Typ.t option
-    val make : ('variant, 'args) t -> ('variant, 'args) make
+    val args : ('variant, 'args) t -> ('variant, 'args) args
   end
 
   module Variant : sig
     type 'variant t
 
-    type 'variant constr =
-      | Constr : ('variant, 'args) Constr.t -> 'variant constr
-
-    type 'variant value =
-      | Value : ('variant, 'args) Constr.t * 'args -> 'variant value
-
-    val value : ('variant, 'args) Constr.t -> 'args -> 'variant value
     val name : 'variant t -> string
-    val view : 'variant t -> 'variant -> 'variant value
-    val constr_list : 'variant t -> 'variant constr list
+    val value : 'variant t -> 'variant -> 'variant Constr.value
+    val constr_list : 'variant t -> 'variant Constr.any list
   end
 
   val field : string -> 'a t -> ('record -> 'a) -> ('record, 'a) Field.t
   val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record t
 
   val constr :
-    string -> ('variant, 'args) Constr.make -> ('variant, 'args) Constr.t
+    string -> ('variant, 'args) Constr.args -> ('variant, 'args) Constr.t
 
   val variant :
     string ->
-    'variant Variant.constr list ->
-    ('variant -> 'variant Variant.value) ->
+    'variant Constr.any list ->
+    ('variant -> 'variant Constr.value) ->
     'variant t
 
   val abstract : string -> 'a t -> 'a t
@@ -214,41 +262,31 @@ end = struct
   end
 
   module Constr = struct
-    type ('variant, 'args) make =
-      | Const : 'variant -> ('variant, unit) make
-      | Args : 'args Typ.t * ('args -> 'variant) -> ('variant, 'args) make
+    type ('variant, 'args) args =
+      | Const : 'variant -> ('variant, unit) args
+      | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) args
 
-    type ('variant, 'args) t = { name : string; make : ('variant, 'args) make }
+    type ('variant, 'args) t = { name : string; args : ('variant, 'args) args }
+
+    type 'variant value =
+      | Value : ('variant, 'args) t * 'args -> 'variant value
+
+    type 'variant any = Any : ('variant, 'args) t -> 'variant any
 
     let name : type variant args. (variant, args) t -> string = fun t -> t.name
-
-    let args : type variant args. (variant, args) t -> args Typ.t option =
-     fun t ->
-      match t.make with
-      | Const _ -> None
-      | Args (args_t, _make) -> Some args_t
-
-    let make : type variant args. (variant, args) t -> (variant, args) make =
-     fun variant_t -> variant_t.make
+    let args t = t.args
   end
 
   module Variant = struct
-    type 'variant constr =
-      | Constr : ('variant, 'args) Constr.t -> 'variant constr
-
-    type 'variant value =
-      | Value : ('variant, 'args) Constr.t * 'args -> 'variant value
-
     type 'variant t = {
       name : string;
-      constr_list : 'variant constr list;
-      view : 'variant -> 'variant value;
+      constr_list : 'variant Constr.any list;
+      value : 'variant -> 'variant Constr.value;
       witness : 'variant Witness.t;
     }
 
-    let value constr x = Value (constr, x)
     let name t = t.name
-    let view t = t.view
+    let value t = t.value
     let constr_list variant = variant.constr_list
   end
 
@@ -287,10 +325,10 @@ end = struct
         witness = Witness.make ();
       }
 
-  let constr name make = { Constr.name; make }
+  let constr name args = { Constr.name; args }
 
-  let variant name constr_list view =
-    Typ.Variant { Variant.name; constr_list; view; witness = Witness.make () }
+  let variant name constr_list value =
+    Typ.Variant { Variant.name; constr_list; value; witness = Witness.make () }
 
   let abstract name typ =
     Typ.Abstract { Abstract.name; typ; witness = Witness.make () }
@@ -313,25 +351,25 @@ let bytes = Typ.Bytes
 let option t =
   let none_constr = Typ.constr "None" (Const None) in
   let some_constr = Typ.constr "Some" (Args (t, fun x -> Some x)) in
-  let view = function
-    | None -> Typ.Variant.Value (none_constr, ())
-    | Some x -> Typ.Variant.Value (some_constr, x)
+  let value = function
+    | None -> Typ.Constr.Value (none_constr, ())
+    | Some x -> Typ.Constr.Value (some_constr, x)
   in
   Typ.variant "option"
-    [ Typ.Variant.Constr none_constr; Typ.Variant.Constr some_constr ]
-    view
+    [ Typ.Constr.Any none_constr; Typ.Constr.Any some_constr ]
+    value
 
 let result ok_t error_t =
   let ok_constr = Typ.constr "Ok" (Args (ok_t, fun x -> Ok x)) in
   let error_constr = Typ.constr "Some" (Args (error_t, fun x -> Error x)) in
-  let view result =
+  let value result =
     match result with
-    | Ok x -> Typ.Variant.Value (ok_constr, x)
-    | Error err -> Typ.Variant.Value (error_constr, err)
+    | Ok x -> Typ.Constr.Value (ok_constr, x)
+    | Error err -> Typ.Constr.Value (error_constr, err)
   in
   Typ.variant "result"
-    [ Typ.Variant.Constr ok_constr; Typ.Variant.Constr error_constr ]
-    view
+    [ Typ.Constr.Any ok_constr; Typ.Constr.Any error_constr ]
+    value
 
 type ('a, 'b) equal = ('a, 'b) Witness.equal = Equal : ('a, 'a) equal
 

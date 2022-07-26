@@ -29,8 +29,8 @@ module Mapper = struct
 
   let variant self variant_t =
     let constr_list = Generic.Variant.constr_list variant_t in
-    let (Generic.Variant.Constr constr) = List.hd constr_list in
-    match Generic.Constr.make constr with
+    let (Generic.Constr.Any constr) = List.hd constr_list in
+    match Generic.Constr.args constr with
     | Const variant -> variant
     | Args (args_t, make) ->
       let args = self.map args_t in
