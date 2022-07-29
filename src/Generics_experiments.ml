@@ -6,7 +6,7 @@ module X1 = struct
     | Const : { name : string; value : 'variant } -> ('variant, 'variant) case
     | Apply : {
         name : string;
-        args : 'args Generics.t;
+        args : 'args Generics.typ;
         make : 'args -> 'variant;
       }
         -> ('variant, 'args -> 'variant) case
@@ -32,7 +32,7 @@ module X2 = struct
     | Const : { name : string; value : 'variant } -> ('variant, no_args) case
     | Apply : {
         name : string;
-        args : 'args Generics.t;
+        args : 'args Generics.typ;
         make : 'args -> 'variant;
       }
         -> ('variant, 'args args) case
@@ -63,7 +63,7 @@ module X3 = struct
     | Const : { name : string; value : 'variant } -> ('variant, no_args) case
     | Apply : {
         name : string;
-        args : 'args Generics.t;
+        args : 'args Generics.typ;
         make : 'args -> 'variant;
       }
         -> ('variant, 'args args) case
@@ -91,7 +91,7 @@ module X4 = struct
   module Constr = struct
     type ('variant, 'args) make =
       | Const : 'variant -> ('variant, unit) make
-      | Args : 'args Generics.t * ('args -> 'variant) -> ('variant, 'args) make
+      | Args : 'args Generics.typ * ('args -> 'variant) -> ('variant, 'args) make
 
     type ('variant, 'args) t = { name : string; make : ('variant, 'args) make }
   end
@@ -129,7 +129,7 @@ end
 module X5_broken = struct
   module Constr = struct
     type ('variant, 'args) args =
-      ('args Generics.t * ('args -> 'variant)) option
+      ('args Generics.typ * ('args -> 'variant)) option
 
     type ('variant, 'args) t = { name : string; args : ('variant, 'args) args }
   end
@@ -183,7 +183,7 @@ module X6 = struct
 
     type ('variant, 'args) with_args = {
       name : string;
-      args : 'args Generics.t;
+      args : 'args Generics.typ;
       make : 'args -> 'variant;
     }
 

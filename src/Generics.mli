@@ -1,14 +1,11 @@
-type 'a t
+type 'a typ
 (** The type for runtime representation of types. *)
 
-type 'a typ = 'a t
-(** Alias for ['a t]. *)
-
-type 'a dyn = 'a t * 'a
+type 'a dyn = 'a typ * 'a
 (** The type for dynamic values, i.e., values with a type representation. *)
 
 (** Type representation value with existential variable. *)
-type any = Any : 'a t -> any
+type any = Any : 'a typ -> any
 
 (** {1 Basic types} *)
 
@@ -39,10 +36,10 @@ val string : string typ
 val bytes : bytes typ
 (** Runtime representation for bytes. *)
 
-val option : 'a t -> 'a option typ
+val option : 'a typ -> 'a option typ
 (** Runtime representation for option types. *)
 
-val result : 'a t -> 'e t -> ('a, 'e) result typ
+val result : 'a typ -> 'e typ -> ('a, 'e) result typ
 (** Runtime representation for result types. *)
 
 (** {1 Records} *)
@@ -75,7 +72,7 @@ module Field : sig
   (** [get record field] is the value of [field] in [record]. *)
 end
 
-val field : string -> 'a t -> ('record -> 'a) -> ('record, 'a) Field.t
+val field : string -> 'a typ -> ('record -> 'a) -> ('record, 'a) Field.t
 (** [field name field_t get : ('record, 'a) Field.t] is the runtime
     representation of the field with type ['a], represented by [field_t],
     belonging to the record ['record]. See the {!module:Field} module for more
@@ -197,7 +194,7 @@ val variant :
   string ->
   'variant Constr.any list ->
   ('variant -> 'variant Constr.value) ->
-  'variant t
+  'variant typ
 (** Variant representation.
 
     [varinat name constr_list value] is the runtime representation of a variant
@@ -226,7 +223,7 @@ module Dyn : sig
   (** The value of the dynamic value. *)
 end
 
-(** {1 Type representation equality} *)
+(** {1 Type equality} *)
 
 (** The type for equality between [typ] values. *)
 type ('a, 'b) equal = Equal : ('a, 'a) equal

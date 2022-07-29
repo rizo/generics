@@ -1,6 +1,6 @@
 (library
  (public_name generics)
- (modules Generics Witness Hmap))
+ (modules Generics Witness))
 
 (library
  (name generics_std)

@@ -22,23 +22,22 @@ end
 type 'a tid = 'a Tid.t
 
 module rec Typ : sig
-  type _ t =
-    | Unit : unit t
-    | Int : int t
-    | Int32 : int32 t
-    | Int64 : int64 t
-    | Float : float t
-    | Bool : bool t
-    | Char : char t
-    | String : string t
-    | Bytes : bytes t
-    | Record : ('record, 'fields) Typ.Record.t -> 'record t
-    | Variant : 'variant Typ.Variant.t -> 'variant t
-    | Abstract : 'a tid -> 'a t
-    | Alias : 'a t * ('a, 'b) Witness.equal -> 'b t
+  type _ typ =
+    | Unit : unit typ
+    | Int : int typ
+    | Int32 : int32 typ
+    | Int64 : int64 typ
+    | Float : float typ
+    | Bool : bool typ
+    | Char : char typ
+    | String : string typ
+    | Bytes : bytes typ
+    | Record : ('record, 'fields) Typ.Record.t -> 'record typ
+    | Variant : 'variant Typ.Variant.t -> 'variant typ
+    | Abstract : 'a tid -> 'a typ
+    | Alias : 'a typ * ('a, 'b) Witness.equal -> 'b typ
 
-  type 'a typ = 'a t
-  type any = Any : 'a t -> any
+  type any = Any : 'a typ -> any
 
   val equal : 'a typ -> 'b typ -> ('a, 'b) Witness.equal option
 
@@ -90,8 +89,8 @@ module rec Typ : sig
     val constr_list : 'variant t -> 'variant Constr.any list
   end
 
-  val field : string -> 'a t -> ('record -> 'a) -> ('record, 'a) Field.t
-  val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record t
+  val field : string -> 'a typ -> ('record -> 'a) -> ('record, 'a) Field.t
+  val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record typ
 
   val constr :
     string -> ('variant, 'args) Constr.make -> ('variant, 'args) Constr.t
@@ -100,34 +99,33 @@ module rec Typ : sig
     string ->
     'variant Constr.any list ->
     ('variant -> 'variant Constr.value) ->
-    'variant t
+    'variant typ
 
-  val abstract : string -> 'a t
-  val tid : 'a t -> 'a Tid.t
+  val abstract : string -> 'a typ
+  val tid : 'a typ -> 'a Tid.t
 end = struct
-  type _ t =
-    | Unit : unit t
-    | Int : int t
-    | Int32 : int32 t
-    | Int64 : int64 t
-    | Float : float t
-    | Bool : bool t
-    | Char : char t
-    | String : string t
-    | Bytes : bytes t
-    | Record : ('record, 'fields) Typ.Record.t -> 'record t
-    | Variant : 'variant Typ.Variant.t -> 'variant t
-    | Abstract : 'a tid -> 'a t
-    | Alias : 'a t * ('a, 'b) Witness.equal -> 'b t
+  type _ typ =
+    | Unit : unit typ
+    | Int : int typ
+    | Int32 : int32 typ
+    | Int64 : int64 typ
+    | Float : float typ
+    | Bool : bool typ
+    | Char : char typ
+    | String : string typ
+    | Bytes : bytes typ
+    | Record : ('record, 'fields) Typ.Record.t -> 'record typ
+    | Variant : 'variant Typ.Variant.t -> 'variant typ
+    | Abstract : 'a tid -> 'a typ
+    | Alias : 'a typ * ('a, 'b) Witness.equal -> 'b typ
 
-  type 'a typ = 'a Typ.t
-  type any = Any : 'a t -> any
+  type any = Any : 'a typ -> any
 
   module Field = struct
     type ('record, 'a) t = {
       name : string;
       get : 'record -> 'a;
-      typ : 'a Typ.t;
+      typ : 'a typ;
     }
 
     type ('record, 'fields) list =
@@ -235,7 +233,7 @@ end = struct
 
   let abstract name = Abstract (Tid.make name)
 
-  let tid : type a. a t -> a Tid.t =
+  let tid : type a. a typ -> a Tid.t =
    fun t ->
     match t with
     | Unit -> Tid.unit
@@ -255,7 +253,7 @@ end
 
 include Typ
 
-type 'a dyn = 'a t * 'a
+type 'a dyn = 'a typ * 'a
 
 let int = Typ.Int
 let int32 = Typ.Int32
@@ -337,7 +335,7 @@ end = struct
 
   let mappers : extension Int_map.t ref = ref Int_map.empty
 
-  let rec map : type a. a Typ.t -> a Mapper.t =
+  let rec map : type a. a typ -> a Mapper.t =
    fun typ ->
     match typ with
     | Unit -> Mapper.unit

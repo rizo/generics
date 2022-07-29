@@ -59,5 +59,5 @@ let person_t =
       { name; age; profession; favorite_color })
 
 let default_person = Generics_default.map person_t
-let in_channel_t : in_channel Generics.t = Generics.abstract "in_channel"
+let in_channel_t : in_channel Generics.typ = Generics.abstract "in_channel"
 (* let default_in_channel = Generics_default.make in_channel_t *)

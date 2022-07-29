@@ -1,6 +1,6 @@
 module Mapper = struct
   type 'a t = 'a
-  type mapper = { map : 'a. 'a Generics.t -> 'a t }
+  type mapper = { map : 'a. 'a Generics.typ -> 'a t }
 
   let unit = ()
   let int = 0
