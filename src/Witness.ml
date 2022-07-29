@@ -19,6 +19,11 @@ let make () (type s) =
   end in
   (module M : Instances with type t = s)
 
+let tag : type a. a t -> int =
+ fun t ->
+  let module W = (val t : Instances with type t = a) in
+  Obj.magic W.Witness
+
 type ('a, 'b) equal = Equal : ('a, 'a) equal
 
 let equal : type r s. r t -> s t -> (r, s) equal option =

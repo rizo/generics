@@ -1,15 +1,16 @@
 (library
- (public_name generic)
- (modules Generic Witness))
+ (public_name generics)
+ (modules Generics Witness Hmap))
 
 (library
- (name generic_std)
- (public_name generic.std)
+ (name generics_std)
+ (public_name generics.std)
  (modules
-  Generic_equal
-  Generic_show
-  Generic_examples
-  Generic_default
-  Generic_experiments)
- (wrapped true)
- (libraries generic))
+  Generics_std
+  Generics_equal
+  Generics_show
+  Generics_examples
+  Generics_default
+  Generics_experiments)
+ (wrapped false)
+ (libraries generics))

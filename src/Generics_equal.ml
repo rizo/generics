@@ -1,6 +1,6 @@
 module Mapper = struct
   type 'a t = 'a -> 'a -> bool
-  type mapper = { map : 'a. 'a Generic.typ -> 'a t }
+  type mapper = { map : 'a. 'a Generics.typ -> 'a t }
 
   let unit _ _ = true
   let int : int -> int -> bool = ( = )
@@ -35,40 +35,36 @@ module Mapper = struct
     | _ -> false
 
   let record self record_t r1 r2 =
-    let fields = Generic.Record.any_fields record_t in
+    let fields = Generics.Record.any_fields record_t in
     List.for_all
-      (fun (Generic.Field.Any field) ->
-        let ft = Generic.Field.typ field in
-        let v1 = Generic.Field.get r1 field in
-        let v2 = Generic.Field.get r2 field in
+      (fun (Generics.Field.Any field) ->
+        let ft = Generics.Field.typ field in
+        let v1 = Generics.Field.get r1 field in
+        let v2 = Generics.Field.get r2 field in
         let eq = self.map ft in
         eq v1 v2)
       fields
 
   let variant self variant_t variant1 variant2 =
-    let (Generic.Constr.Value (c1, args1)) =
-      Generic.Variant.value variant_t variant1
+    let (Generics.Constr.Value (c1, args1)) =
+      Generics.Variant.value variant_t variant1
     in
-    let (Generic.Constr.Value (c2, args2)) =
-      Generic.Variant.value variant_t variant2
+    let (Generics.Constr.Value (c2, args2)) =
+      Generics.Variant.value variant_t variant2
     in
-    let n1 = Generic.Constr.name c1 in
-    let n2 = Generic.Constr.name c2 in
+    let n1 = Generics.Constr.name c1 in
+    let n2 = Generics.Constr.name c2 in
     if string n1 n2 then
-      match (Generic.Constr.args c1, Generic.Constr.args c2) with
+      match (Generics.Constr.make c1, Generics.Constr.make c2) with
       | Const _, Const _ -> true
       | Args (args1_t, _), Args (args2_t, _) -> (
-        match Generic.equal args1_t args2_t with
+        match Generics.equal args1_t args2_t with
         | Some Equal -> self.map args1_t args1 args2
         | None -> false)
       | _ -> false
     else false
 
-  let abstract self _name typ v1 v2 =
-    let eq = self.map typ in
-    eq v1 v2
+  let abstract _name _v1 _v2 = false
 end
 
-module M = Generic.Map (Mapper)
-
-let equal = M.map
+include Generics.Map (Mapper)

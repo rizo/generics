@@ -47,6 +47,7 @@ val result : 'a t -> 'e t -> ('a, 'e) result typ
 
 (** {1 Records} *)
 
+(** Definitions for runtime field representation. *)
 module Field : sig
   type ('record, 'a) t
   (** The runtime representation of fields with values of type ['a] belonging to
@@ -54,15 +55,24 @@ module Field : sig
 
   type 'record any = Any : ('record, 'a) t -> 'record any
 
-  type ('record, 'fields) list =
+  (** The type for field lists that preserves individual field types.
+
+      The type variable ['make] is the function type from record fields to the
+      record type. *)
+  type ('record, 'make) list =
     | [] : ('record, 'record) list
     | ( :: ) :
-        ('record, 'a) t * ('record, 'fields) list
-        -> ('record, 'a -> 'fields) list
+        ('record, 'a) t * ('record, 'make) list
+        -> ('record, 'a -> 'make) list
 
   val name : ('record, 'a) t -> string
+  (** [name field] is the name of [field]. *)
+
   val typ : ('record, 'a) t -> 'a typ
+  (** [typ field] is the runtime representation of the type of [field]. *)
+
   val get : 'record -> ('record, 'a) t -> 'a
+  (** [get record field] is the value of [field] in [record]. *)
 end
 
 val field : string -> 'a t -> ('record -> 'a) -> ('record, 'a) Field.t
@@ -71,6 +81,7 @@ val field : string -> 'a t -> ('record -> 'a) -> ('record, 'a) Field.t
     belonging to the record ['record]. See the {!module:Field} module for more
     operations on fields. *)
 
+(** Definitions for runtime record representation. *)
 module Record : sig
   type ('record, 'make) t
   (** The runtime representation of records of type ['record].
@@ -111,6 +122,7 @@ val record : string -> ('record, 'make) Field.list -> 'make -> 'record typ
 
 (** {1 Variants} *)
 
+(** Definitions for runtime variant constructor representation. *)
 module Constr : sig
   (** Constructors can either be constant or take one or more arguments.
 
@@ -137,10 +149,12 @@ module Constr : sig
   (** The runtime representation of constructors for the variant type ['variant]
       with arguments of type ['args]. *)
 
-  (** The runtime representation of constructor arguments. *)
-  type ('variant, 'args) args =
-    | Const : 'variant -> ('variant, unit) args
-    | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) args
+  (** The representation of the constructor values either as an immediate
+      constant value or a function from constructor arguments to the variant
+      value. *)
+  type ('variant, 'args) make =
+    | Const : 'variant -> ('variant, unit) make
+    | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) make
 
   (** The runtime representation of a constructor with arguments. *)
   type 'variant value = Value : ('variant, 'args) t * 'args -> 'variant value
@@ -151,15 +165,14 @@ module Constr : sig
   val name : ('variant, 'args) t -> string
   (** The name of the constructor. *)
 
-  val args : ('variant, 'args) t -> ('variant, 'args) args
-  (** [args constr] is the representation of the arguments of constructor
-      [constr].
+  val make : ('variant, 'args) t -> ('variant, 'args) make
+  (** [make constr] is the representation of the value of the constructor.
 
       The constructor can either be constant or have arguments. *)
 end
 
 val constr :
-  string -> ('variant, 'args) Constr.args -> ('variant, 'args) Constr.t
+  string -> ('variant, 'args) Constr.make -> ('variant, 'args) Constr.t
 (** [constr name make : ('variant, 'args) Constr.t] is the runtime
     representation of the constructor with arguments of type ['args] belonging
     to the variant ['variant].
@@ -171,6 +184,7 @@ val constr :
 
     See the {!module:Constr} module for more operations on constructors. *)
 
+(** Definitions for runtime variant representation. *)
 module Variant : sig
   type 'variant t
 
@@ -193,22 +207,23 @@ val variant :
 
 (** {1 Abstract types} *)
 
-module Abstract : sig
-  type 'a t
-
-  val name : 'a t -> string
-  val typ : 'a t -> 'a typ
-end
-
-val abstract : string -> 'a typ -> 'a typ
+val abstract : string -> 'a typ
 
 (** {1 Dynamic types} *)
+
+(** Definitions for values with runtime type representation. *)
 module Dyn : sig
   type 'a t = 'a dyn
+  (** The type for dynamic values, i.e., values with a type representation. *)
+
+  (** The type for dynamic values with existential variable. *)
   type any = Any : 'a dyn -> any
 
   val typ : 'a dyn -> 'a typ
+  (** The runtime representation of the dynamic value. *)
+
   val value : 'a dyn -> 'a
+  (** The value of the dynamic value. *)
 end
 
 (** {1 Type representation equality} *)
@@ -236,9 +251,10 @@ module type Mapper = sig
   val bytes : bytes t
   val record : mapper -> ('r, 'fields) Record.t -> 'r t
   val variant : mapper -> 'variant Variant.t -> 'variant t
-  val abstract : mapper -> string -> 'a typ -> 'a t
+  val abstract : string -> 'a t
 end
 
 module Map : functor (Mapper : Mapper) -> sig
   val map : 'a typ -> 'a Mapper.t
+  val register : 'a typ -> 'a Mapper.t -> unit
 end

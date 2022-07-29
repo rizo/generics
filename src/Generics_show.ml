@@ -1,6 +1,6 @@
 module Mapper = struct
   type 'a t = 'a -> string
-  type mapper = { map : 'a. 'a Generic.t -> 'a t }
+  type mapper = { map : 'a. 'a Generics.t -> 'a t }
 
   let unit () = "()"
   let int = string_of_int
@@ -15,33 +15,29 @@ module Mapper = struct
   let record self record_t r1 =
     let fields =
       record_t
-      |> Generic.Record.any_fields
-      |> List.map (fun (Generic.Field.Any field) ->
-             let typ = Generic.Field.typ field in
+      |> Generics.Record.any_fields
+      |> List.map (fun (Generics.Field.Any field) ->
+             let typ = Generics.Field.typ field in
              let show = self.map typ in
-             let v = Generic.Field.get r1 field in
+             let v = Generics.Field.get r1 field in
              String.concat ""
-               [ "  "; Generic.Field.name field; " = "; show v; ";" ])
+               [ "  "; Generics.Field.name field; " = "; show v; ";" ])
       |> String.concat "\n"
     in
     String.concat "\n" [ "{ "; fields; "}" ]
 
   let variant self variant_t variant =
-    let (Generic.Constr.Value (constr, args)) =
-      Generic.Variant.value variant_t variant
+    let (Generics.Constr.Value (constr, args)) =
+      Generics.Variant.value variant_t variant
     in
-    let constr_name = Generic.Constr.name constr in
-    match Generic.Constr.args constr with
+    let constr_name = Generics.Constr.name constr in
+    match Generics.Constr.make constr with
     | Const _ -> constr_name
     | Args (args_t, _) ->
       let show_args = self.map args_t args in
       String.concat " " [ constr_name; show_args ]
 
-  let abstract self _name (t : 'a Generic.t) x =
-    let show = self.map t in
-    show x
+  let abstract name _ = String.concat "" [ "<"; name; ">" ]
 end
 
-module Map = Generic.Map (Mapper)
-
-let show = Map.map
+include Generics.Map (Mapper)

@@ -6,7 +6,7 @@ module X1 = struct
     | Const : { name : string; value : 'variant } -> ('variant, 'variant) case
     | Apply : {
         name : string;
-        args : 'args Generic.t;
+        args : 'args Generics.t;
         make : 'args -> 'variant;
       }
         -> ('variant, 'args -> 'variant) case
@@ -21,7 +21,7 @@ module X1 = struct
     | Apply apply -> apply.make
 
   let (_ : 'a option) = make none
-  let (_ : 'a option) = make (some Generic.int) 42
+  let (_ : 'a option) = make (some Generics.int) 42
 end
 
 module X2 = struct
@@ -32,7 +32,7 @@ module X2 = struct
     | Const : { name : string; value : 'variant } -> ('variant, no_args) case
     | Apply : {
         name : string;
-        args : 'args Generic.t;
+        args : 'args Generics.t;
         make : 'args -> 'variant;
       }
         -> ('variant, 'args args) case
@@ -52,7 +52,7 @@ module X2 = struct
     | Apply apply -> apply.make
 
   let (_ : 'a option) = make_const none
-  let (_ : 'a option) = make_apply (some Generic.int) 42
+  let (_ : 'a option) = make_apply (some Generics.int) 42
 end
 
 module X3 = struct
@@ -63,7 +63,7 @@ module X3 = struct
     | Const : { name : string; value : 'variant } -> ('variant, no_args) case
     | Apply : {
         name : string;
-        args : 'args Generic.t;
+        args : 'args Generics.t;
         make : 'args -> 'variant;
       }
         -> ('variant, 'args args) case
@@ -84,14 +84,14 @@ module X3 = struct
     | MkApply (Apply apply) -> apply.make
 
   let (_ : 'a option) = make (MkConst none)
-  let (_ : 'a option) = make (MkApply (some Generic.int)) 42
+  let (_ : 'a option) = make (MkApply (some Generics.int)) 42
 end
 
 module X4 = struct
   module Constr = struct
     type ('variant, 'args) make =
       | Const : 'variant -> ('variant, unit) make
-      | Args : 'args Generic.t * ('args -> 'variant) -> ('variant, 'args) make
+      | Args : 'args Generics.t * ('args -> 'variant) -> ('variant, 'args) make
 
     type ('variant, 'args) t = { name : string; make : ('variant, 'args) make }
   end
@@ -128,7 +128,9 @@ end
 
 module X5_broken = struct
   module Constr = struct
-    type ('variant, 'args) args = ('args Generic.t * ('args -> 'variant)) option
+    type ('variant, 'args) args =
+      ('args Generics.t * ('args -> 'variant)) option
+
     type ('variant, 'args) t = { name : string; args : ('variant, 'args) args }
   end
 
@@ -157,7 +159,7 @@ module X5_broken = struct
     let red_constr = constr "Red" None in
     let green_constr = constr "Green" None in
     let blue_constr = constr "Blue" None in
-    let rgb_constr = constr "Rgb" (Some (Generic.int, fun x -> Rgb x)) in
+    let rgb_constr = constr "Rgb" (Some (Generics.int, fun x -> Rgb x)) in
     let view variant =
       match variant with
       | Red -> Variant.value red_constr ()
@@ -181,7 +183,7 @@ module X6 = struct
 
     type ('variant, 'args) with_args = {
       name : string;
-      args : 'args Generic.t;
+      args : 'args Generics.t;
       make : 'args -> 'variant;
     }
 
@@ -212,7 +214,7 @@ module X6 = struct
     let red_constr = Constr.const "Red" Red in
     let green_constr = Constr.const "Green" Green in
     let blue_constr = Constr.const "Blue" Blue in
-    let rgb_constr = Constr.with_args "Rgb" Generic.int (fun x -> Rgb x) in
+    let rgb_constr = Constr.with_args "Rgb" Generics.int (fun x -> Rgb x) in
     let view variant =
       match variant with
       | Red -> Variant.Const red_constr

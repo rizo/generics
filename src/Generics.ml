@@ -1,110 +1,25 @@
-(*
+module Tid = struct
+  type 'a t = { name : string; code : int; witness : 'a Witness.t }
 
-  typ
-  dyn
-  any
+  (* Must be in sync with the first non-scalar type in Typ.t *)
+  let current_code = ref 0
 
-  record, field, variant, constructor, constructor value
+  let make name =
+    incr current_code;
+    { code = !current_code; witness = Witness.make (); name }
 
-  Record
-  Field
-  Variant
-  Constr
-  Constr_val
-  Constr_val
+  let unit : unit t = make "unit"
+  let int : int t = make "int"
+  let int32 : int32 t = make "int32"
+  let int64 : int64 t = make "int64"
+  let float : float t = make "float"
+  let bool : bool t = make "bool"
+  let char : char t = make "char"
+  let string : string t = make "string"
+  let bytes : bytes t = make "bytes"
+end
 
-  Constr.const
-  Constr.with_args
-
-  Constr_val.const
-  Constr_val.with_args
-
-  Constr.Val.const
-  Constr.Val.with_args
-
-  Variant.Constr
-
-  Field.t
-  Field.name
-  Field.typ
-  Field.get : ('record, 'a) t -> 'record -> 'a
-  Field.map : ('record, 'a) t -> ('a -> 'a) -> 'record -> 'record
-  Field.set : ('record, 'a) t -> 'a -> 'record -> unit
-
-  Record.t
-  Record.name
-  Record.fields
-  Record.map
-  Record.fold
-  Record.make
-
-  Constr.t
-
-  Constr.const
-  Constr.apply
-
-  constr "None" (Const None)
-  constr "Some" (Args (t, fun x -> Some x))
-
-
-  constr "Red" ?args:None Red
-  constr "Rgb" ~args:Typ.int (fun x -> Rgb x)
-
-  val constr : string -> ?args:'args -> 'make -> ('variant, 'make) constr
-
-  type ('variant, 'make) constr =
-    {
-      name : string;
-      args : 'args option;
-      make : 'make;
-    }
-
-
-  constr_const "Red" Red
-  constr_args "Rgb" Typ.int (fun x -> Rgb x)
-
-  val constr_const : string -> 'variant -> 'variant constr_const
-  val constr_args : string -> 'args typ -> ('args -> 'variant -> ('variant, 'args) constr_args
-
-  type 'variant constr_const = {
-    name : string;
-    value : 'variant;
-  }
-
-  type ('variant, 'args) constr_args = {
-    name : string;
-    args : 'args typ;
-    make : 'args -> 'variant;
-  }
-
-  constr "None" Typ.unit (fun () -> None)
-  constr "Some" some_t (fun x -> Some x)
-
-  Variant.t
-
-  Abstract.t
-
-
-  const
-  case0
-  tag
-  variant
-  args
-  constructor
-  constr
-  Case.const
-  Case.args
-
-  case (Const Blue)
-  case (Args (fun rgb -> Rgb rgb))
-
-  constr (Const Blue)
-  constr (Args (int * int * int) (fun rgb -> Rgb rgb))
-
-  Case.const Blue
-  Case.apply Typ.int rgb (fun rgb -> Rgb rgb)
-
-  *)
+type 'a tid = 'a Tid.t
 
 module rec Typ : sig
   type _ t =
@@ -119,19 +34,13 @@ module rec Typ : sig
     | Bytes : bytes t
     | Record : ('record, 'fields) Typ.Record.t -> 'record t
     | Variant : 'variant Typ.Variant.t -> 'variant t
-    | Abstract : 'a Typ.Abstract.t -> 'a t
+    | Abstract : 'a tid -> 'a t
+    | Alias : 'a t * ('a, 'b) Witness.equal -> 'b t
 
   type 'a typ = 'a t
   type any = Any : 'a t -> any
 
   val equal : 'a typ -> 'b typ -> ('a, 'b) Witness.equal option
-
-  module Abstract : sig
-    type 'a t
-
-    val name : 'a t -> string
-    val typ : 'a t -> 'a typ
-  end
 
   module Field : sig
     type ('record, 'a) t
@@ -160,9 +69,9 @@ module rec Typ : sig
   module Constr : sig
     type ('variant, 'args) t
 
-    type ('variant, 'args) args =
-      | Const : 'variant -> ('variant, unit) args
-      | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) args
+    type ('variant, 'args) make =
+      | Const : 'variant -> ('variant, unit) make
+      | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) make
 
     type 'variant value =
       | Value : ('variant, 'args) t * 'args -> 'variant value
@@ -170,7 +79,7 @@ module rec Typ : sig
     type 'variant any = Any : ('variant, 'args) t -> 'variant any
 
     val name : ('variant, 'args) t -> string
-    val args : ('variant, 'args) t -> ('variant, 'args) args
+    val make : ('variant, 'args) t -> ('variant, 'args) make
   end
 
   module Variant : sig
@@ -185,7 +94,7 @@ module rec Typ : sig
   val record : string -> ('record, 'fields) Field.list -> 'fields -> 'record t
 
   val constr :
-    string -> ('variant, 'args) Constr.args -> ('variant, 'args) Constr.t
+    string -> ('variant, 'args) Constr.make -> ('variant, 'args) Constr.t
 
   val variant :
     string ->
@@ -193,7 +102,8 @@ module rec Typ : sig
     ('variant -> 'variant Constr.value) ->
     'variant t
 
-  val abstract : string -> 'a t -> 'a t
+  val abstract : string -> 'a t
+  val tid : 'a t -> 'a Tid.t
 end = struct
   type _ t =
     | Unit : unit t
@@ -207,7 +117,8 @@ end = struct
     | Bytes : bytes t
     | Record : ('record, 'fields) Typ.Record.t -> 'record t
     | Variant : 'variant Typ.Variant.t -> 'variant t
-    | Abstract : 'a Typ.Abstract.t -> 'a t
+    | Abstract : 'a tid -> 'a t
+    | Alias : 'a t * ('a, 'b) Witness.equal -> 'b t
 
   type 'a typ = 'a Typ.t
   type any = Any : 'a t -> any
@@ -241,25 +152,25 @@ end = struct
 
   module Record = struct
     type ('record, 'fields) t = {
-      name : string;
+      tid : 'record tid;
       fields : 'record Field.any list;
       fields' : ('record, 'fields) Field.list;
       make : 'fields;
       witness : 'record Witness.t;
     }
 
-    let name t = t.name
+    let name t = t.tid.name
     let any_fields t = t.fields
     let fields t = t.fields'
     let make t = t.make
   end
 
   module Constr = struct
-    type ('variant, 'args) args =
-      | Const : 'variant -> ('variant, unit) args
-      | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) args
+    type ('variant, 'args) make =
+      | Const : 'variant -> ('variant, unit) make
+      | Args : 'args typ * ('args -> 'variant) -> ('variant, 'args) make
 
-    type ('variant, 'args) t = { name : string; args : ('variant, 'args) args }
+    type ('variant, 'args) t = { name : string; make : ('variant, 'args) make }
 
     type 'variant value =
       | Value : ('variant, 'args) t * 'args -> 'variant value
@@ -267,30 +178,23 @@ end = struct
     type 'variant any = Any : ('variant, 'args) t -> 'variant any
 
     let name : type variant args. (variant, args) t -> string = fun t -> t.name
-    let args t = t.args
+    let make t = t.make
   end
 
   module Variant = struct
     type 'variant t = {
-      name : string;
+      tid : 'variant tid;
       constr_list : 'variant Constr.any list;
       value : 'variant -> 'variant Constr.value;
       witness : 'variant Witness.t;
     }
 
-    let name t = t.name
+    let name t = t.tid.name
     let value t = t.value
     let constr_list variant = variant.constr_list
   end
 
-  module Abstract = struct
-    type 'a t = { name : string; typ : 'a Typ.t; witness : 'a Witness.t }
-
-    let name t = t.name
-    let typ t = t.typ
-  end
-
-  let rec equal : type a b. a typ -> b typ -> (a, b) Witness.equal option =
+  let equal : type a b. a typ -> b typ -> (a, b) Witness.equal option =
    fun t1 t2 ->
     match (t1, t2) with
     | Int, Int -> Some Equal
@@ -300,7 +204,7 @@ end = struct
       Witness.equal t1.Variant.witness t2.Variant.witness
     | Record t1, Record t2 -> Witness.equal t1.Record.witness t2.Record.witness
     | Abstract a1, Abstract a2 -> (
-      match equal a1.Abstract.typ a2.Abstract.typ with
+      match Witness.equal a1.witness a2.witness with
       | Some Equal -> Some Equal
       | None -> None)
     | _ -> None
@@ -311,20 +215,42 @@ end = struct
     let any_fields = Field.any_list fields in
     Typ.Record
       {
-        Record.name;
+        Record.tid = Tid.make name;
         fields = any_fields;
         fields' = fields;
         make;
         witness = Witness.make ();
       }
 
-  let constr name args = { Constr.name; args }
+  let constr name make = { Constr.name; make }
 
   let variant name constr_list value =
-    Typ.Variant { Variant.name; constr_list; value; witness = Witness.make () }
+    Typ.Variant
+      {
+        Variant.tid = Tid.make name;
+        constr_list;
+        value;
+        witness = Witness.make ();
+      }
 
-  let abstract name typ =
-    Typ.Abstract { Abstract.name; typ; witness = Witness.make () }
+  let abstract name = Abstract (Tid.make name)
+
+  let tid : type a. a t -> a Tid.t =
+   fun t ->
+    match t with
+    | Unit -> Tid.unit
+    | Int -> Tid.int
+    | Int32 -> Tid.int32
+    | Int64 -> Tid.int64
+    | Float -> Tid.float
+    | Bool -> Tid.bool
+    | Char -> Tid.char
+    | String -> Tid.string
+    | Bytes -> Tid.bytes
+    | Record r -> r.Record.tid
+    | Variant v -> v.Variant.tid
+    | Abstract tid -> tid
+    | Alias _ -> failwith ""
 end
 
 include Typ
@@ -389,10 +315,28 @@ module type Mapper = sig
   val bytes : bytes t
   val record : mapper -> ('r, 'fields) Record.t -> 'r t
   val variant : mapper -> 'variant Variant.t -> 'variant t
-  val abstract : mapper -> string -> 'a typ -> 'a t
+  val abstract : string -> 'a t
 end
 
-module Map (Mapper : Mapper) = struct
+module Int_map = Map.Make (Int)
+
+module Map (Mapper : Mapper) : sig
+  val map : 'a typ -> 'a Mapper.t
+  val register : 'a typ -> 'a Mapper.t -> unit
+end = struct
+  module type Extension = sig
+    type t
+
+    val map : t Mapper.t
+  end
+
+  type extension =
+    | Extension :
+        ('a Witness.t * (module Extension with type t = 'a))
+        -> extension
+
+  let mappers : extension Int_map.t ref = ref Int_map.empty
+
   let rec map : type a. a Typ.t -> a Mapper.t =
    fun typ ->
     match typ with
@@ -407,10 +351,28 @@ module Map (Mapper : Mapper) = struct
     | Bytes -> Mapper.bytes
     | Record r -> Mapper.record self r
     | Variant v -> Mapper.variant self v
-    | Abstract a ->
-      let name = Typ.Abstract.name a in
-      let typ = Typ.Abstract.typ a in
-      Mapper.abstract self name typ
+    | Abstract tid -> (
+      match Int_map.find_opt tid.code !mappers with
+      | None -> failwith "no extension for code"
+      | Some (Extension (ext_witness, ext)) -> (
+        match Witness.equal tid.witness ext_witness with
+        | None -> failwith "type witnesses are not the same"
+        | Some Witness.Equal ->
+          let module Ext = (val ext : Extension with type t = a) in
+          Ext.map))
+    | Alias _ -> failwith "no equal"
 
   and self = { Mapper.map }
+
+  let register (type a) typ map =
+    let module Extension = struct
+      type t = a
+
+      let map = map
+    end in
+    let tid = Typ.tid typ in
+    let ext =
+      Extension (tid.witness, (module Extension : Extension with type t = a))
+    in
+    mappers := Int_map.add tid.code ext !mappers
 end

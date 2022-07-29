@@ -1,6 +1,6 @@
 module Mapper = struct
   type 'a t = 'a
-  type mapper = { map : 'a. 'a Generic.t -> 'a t }
+  type mapper = { map : 'a. 'a Generics.t -> 'a t }
 
   let unit = ()
   let int = 0
@@ -13,32 +13,30 @@ module Mapper = struct
   let bytes = Bytes.of_string ""
 
   let record self record =
-    let rec loop : type r f. f -> (r, f) Generic.Field.list -> r =
+    let rec loop : type r f. f -> (r, f) Generics.Field.list -> r =
      fun m fs ->
       match fs with
-      | Generic.Field.[] -> m
+      | Generics.Field.[] -> m
       | f :: fs' ->
-        let t = Generic.Field.typ f in
+        let t = Generics.Field.typ f in
         let x = self.map t in
         let m' = m x in
         loop m' fs'
     in
-    let make = Generic.Record.make record in
-    let fields = Generic.Record.fields record in
+    let make = Generics.Record.make record in
+    let fields = Generics.Record.fields record in
     loop make fields
 
   let variant self variant_t =
-    let constr_list = Generic.Variant.constr_list variant_t in
-    let (Generic.Constr.Any constr) = List.hd constr_list in
-    match Generic.Constr.args constr with
+    let constr_list = Generics.Variant.constr_list variant_t in
+    let (Generics.Constr.Any constr) = List.hd constr_list in
+    match Generics.Constr.make constr with
     | Const variant -> variant
     | Args (args_t, make) ->
       let args = self.map args_t in
       make args
 
-  let abstract self _name (t : 'a Generic.t) = self.map t
+  let abstract name = failwith ("Unregistered abstract type: " ^ name)
 end
 
-module Map = Generic.Map (Mapper)
-
-let show = Map.map
+include Generics.Map (Mapper)
