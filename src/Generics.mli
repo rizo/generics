@@ -42,7 +42,24 @@ val option : 'a typ -> 'a option typ
 val result : 'a typ -> 'e typ -> ('a, 'e) result typ
 (** Runtime representation for result types. *)
 
-(** {1 Records} *)
+(** {1 Records}
+
+    The following example demonstrates how to encode the runtime representation
+    of a record:
+
+    {[
+      type book = { title : string; authors : string list; pages : int }
+
+      let book_t =
+        let open Generics in
+        let title_field = field "title" string (fun b -> b.title) in
+        let authors_field =
+          field "authors" (list string) (fun b -> b.authors)
+        in
+        let pages_field = field "pages" int (fun b -> b.pages) in
+        record "book" [ title_field; authors_field; pages_field ]
+          (fun title authors pages -> { title; authors; pages })
+    ]} *)
 
 (** Definitions for runtime field representation. *)
 module Field : sig
@@ -117,31 +134,30 @@ val record : string -> ('record, 'make) Field.list -> 'make -> 'record typ
     the record value from field values. See the {!module:Record} module for more
     operations on records. *)
 
-(** {1 Variants} *)
+(** {1 Variants}
 
-(** Definitions for runtime variant constructor representation. *)
+    The following example demonstrates how to encode the runtime representation
+    of the option type provided in the standard library.
+
+    {[
+      (* type 'a option = None | Some of 'a *)
+
+      let option_t t =
+        let open Generics in
+        let none_constr = constr "None" (Const None) in
+        let some_constr = constr "Some" (Args (t, fun x -> Some x)) in
+        let value = function
+          | None -> Constr.Value (none_constr, ())
+          | Some x -> Constr.Value (some_constr, x)
+        in
+        variant "option"
+          [ Constr.Any none_constr; Constr.Any some_constr ]
+          value
+    ]} *)
+
+(** Definitions for runtime variant constructor representation. Constructors can
+    either be constant or take one or more arguments. *)
 module Constr : sig
-  (** Constructors can either be constant or take one or more arguments.
-
-      The following example demonstrates how to encode the runtime
-      representation of the option type provided in the standard library.
-
-      {[
-        type 'a option = None | Some of 'a
-
-        let option t =
-          let open Generic in
-          let none_constr = constr "None" (Const None) in
-          let some_constr = constr "Some" (Args (t, fun x -> Some x)) in
-          let value = function
-            | None -> Constr.Value (none_constr, ())
-            | Some x -> Constr.Value (some_constr, x)
-          in
-          variant "option"
-            [ Constr.Any none_constr; Constr.Any some_constr ]
-            value
-      ]} *)
-
   type ('variant, 'args) t
   (** The runtime representation of constructors for the variant type ['variant]
       with arguments of type ['args]. *)
