@@ -60,4 +60,10 @@ let person_t =
 
 let default_person = Generics_default.map person_t
 let in_channel_t : in_channel Generics.typ = Generics.abstract "in_channel"
-(* let default_in_channel = Generics_default.make in_channel_t *)
+let out_channel_t : out_channel Generics.typ = Generics.abstract "out_channel"
+
+let () =
+  Generics_show.register out_channel_t (fun oc ->
+      if oc = stdout then "<stdout>"
+      else if oc = stderr then "<stderr>"
+      else "<out_channel>")

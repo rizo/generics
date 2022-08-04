@@ -231,11 +231,105 @@ type ('a, 'b) equal = Equal : ('a, 'a) equal
 val equal : 'a typ -> 'b typ -> ('a, 'b) equal option
 (** Checks for equality between two type representations. *)
 
-(** {1 Mapper} *)
+(** {1 Mapper}
+
+    Mappers are datatype-generic interpreters. The most common examples of
+    mappers provide functionality such as generic comparision or printing of
+    values.
+
+    The {!module:Map} functor can be used to create user-defined generic
+    mappers. The {!module-type:Mapper} module type describes the required
+    implementation of a mapper.
+
+    Every mapper needs to provide two types that represent the mapping and the
+    conversion functions for each data type. The following example demonstrates
+    this by implementing a simple mapper to convert values to strings:
+
+    {[
+      module String_mapper = Generic.Map (struct
+        (* The target mapping type from a value to a string. *)
+        type 'a t = 'a -> string
+
+        (* The type of the generic mapper. This is the type of the [self]
+           argument passed to polymorphic mapping functions like [variant] and
+           [record]. *)
+        type mapper = { map : 'a. 'a typ -> 'a t }
+
+        (* Mapping functions for basic types. *)
+        let unit () = "()"
+        let int = string_of_int
+        let int32 = Int32.to_string
+        let int64 = Int64.to_string
+        let float = string_of_float
+        let bool = string_of_bool
+        let char = String.make 1
+        let string x = String.concat "" [ "\""; String.escaped x; "\"" ]
+        let bytes x = string (Bytes.to_string x)
+
+        (* Mapping function for records. *)
+        let record self record_t r1 =
+          let fields =
+            record_t
+            |> Generics.Record.any_field_list
+            |> List.map (fun (Generics.Field.Any field) ->
+                   let typ = Generics.Field.typ field in
+                   let show = self.map typ in
+                   let v = Generics.Field.get r1 field in
+                   String.concat ""
+                     [ "  "; Generics.Field.name field; " = "; show v; ";" ])
+            |> String.concat "\n"
+          in
+          String.concat "\n" [ "{ "; fields; "}" ]
+
+        (* Mapping function for variants. *)
+        let variant self variant_t variant =
+          let (Generics.Constr.Value (constr, args)) =
+            Generics.Variant.value variant_t variant
+          in
+          let constr_name = Generics.Constr.name constr in
+          match Generics.Constr.make constr with
+          | Const _ -> constr_name
+          | Args (args_t, _) ->
+            let show_args = self.map args_t args in
+            String.concat " " [ constr_name; "("; show_args; ")" ]
+
+        (* Mapping function for abstract types. *)
+        let abstract name _ = String.concat "" [ "<"; name; ">" ]
+      end)
+    ]}
+
+    The [String_mapper] module can now be used to convert any generic type to a
+    string:
+
+    {[
+      # String_mapper.map Generic.int 42;;
+      - : string = "42"
+
+      # String_mapper.map Generic.(option bool) (Some true);;
+      - : string = "Some (true)"
+    ]}
+
+    In addition to working on builtin types, [String_mapper] can be extended to
+    work on abstract or user-defined types:
+
+    {[
+      (* Define an abstract type and register a mapping function. *)
+      let out_channel_t : out_channel Generics.typ = Generics.abstract "out_channel" in
+      String_mapper.register out_channel_t
+        (fun oc -> if oc = stdout then "<stdout>"
+          else if oc = stderr then "<stderr>" else "<out_channel>");;
+
+      (* Call the generic mapper with our custom type. *)
+      # String_mapper.map out_channel_t stderr
+      - : string = "<stderr>"
+    ]} *)
 
 module type Mapper = sig
   type 'a t
+  (* The target mapping type. *)
+
   type mapper = { map : 'a. 'a typ -> 'a t }
+  (** The type of the generic mapper. *)
 
   val unit : unit t
   val int : int t
