@@ -237,6 +237,8 @@ val equal : 'a typ -> 'b typ -> ('a, 'b) equal option
     mappers provide functionality such as generic comparision or printing of
     values.
 
+    {2 Custom mappers}
+
     The {!module:Map} functor can be used to create user-defined generic
     mappers. The {!module-type:Mapper} module type describes the required
     implementation of a mapper.

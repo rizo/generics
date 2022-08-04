@@ -12,5 +12,5 @@
   Generics_examples
   Generics_default
   Generics_experiments)
- (wrapped false)
+ (wrapped true)
  (libraries generics))
