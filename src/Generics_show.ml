@@ -15,7 +15,7 @@ module Mapper = struct
   let record self record_t r1 =
     let fields =
       record_t
-      |> Generics.Record.any_fields
+      |> Generics.Record.any_field_list
       |> List.map (fun (Generics.Field.Any field) ->
              let typ = Generics.Field.typ field in
              let show = self.map typ in

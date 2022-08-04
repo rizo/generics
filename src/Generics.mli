@@ -97,13 +97,13 @@ module Record : sig
   val name : ('record, 'make) t -> string
   (** The name of the record type. *)
 
-  val any_fields : ('record, 'make) t -> 'record Field.any list
-  (** [any_fields record] is the list of all [record]'s fields represented as a
-      list of {!type:Field.any} to allow for uniform representation of
+  val any_field_list : ('record, 'make) t -> 'record Field.any list
+  (** [any_field_list record] is the list of all [record]'s fields represented
+      as a list of {!type:Field.any} to allow for uniform representation of
       individual fields. *)
 
-  val fields : ('record, 'make) t -> ('record, 'make) Field.list
-  (** [fields record] is the list of all [record]'s fields represented as
+  val field_list : ('record, 'make) t -> ('record, 'make) Field.list
+  (** [field_list record] is the list of all [record]'s fields represented as
       {!type:Field.list} to preserve the types of individual fields. *)
 
   val make : ('record, 'make) t -> 'make

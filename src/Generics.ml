@@ -60,8 +60,8 @@ module rec Typ : sig
     type ('record, 'fields) t
 
     val name : ('record, 'fields) t -> string
-    val any_fields : ('record, 'fields) t -> 'record Typ.Field.any list
-    val fields : ('record, 'fields) t -> ('record, 'fields) Typ.Field.list
+    val any_field_list : ('record, 'fields) t -> 'record Typ.Field.any list
+    val field_list : ('record, 'fields) t -> ('record, 'fields) Typ.Field.list
     val make : ('record, 'fields) t -> 'fields
   end
 
@@ -122,11 +122,7 @@ end = struct
   type any = Any : 'a typ -> any
 
   module Field = struct
-    type ('record, 'a) t = {
-      name : string;
-      get : 'record -> 'a;
-      typ : 'a typ;
-    }
+    type ('record, 'a) t = { name : string; get : 'record -> 'a; typ : 'a typ }
 
     type ('record, 'fields) list =
       | [] : ('record, 'record) list
@@ -158,8 +154,8 @@ end = struct
     }
 
     let name t = t.tid.name
-    let any_fields t = t.fields
-    let fields t = t.fields'
+    let any_field_list t = t.fields
+    let field_list t = t.fields'
     let make t = t.make
   end
 
