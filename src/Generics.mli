@@ -1,12 +1,6 @@
 type 'a typ
 (** The type for runtime representation of types. *)
 
-type 'a dyn = 'a typ * 'a
-(** The type for dynamic values, i.e., values with a type representation. *)
-
-(** Type representation value with existential variable. *)
-type any = Any : 'a typ -> any
-
 (** {1 Basic types} *)
 
 val unit : unit typ
@@ -222,11 +216,17 @@ val variant :
 
 val abstract : string -> 'a typ
 
-(** {1 Dynamic types} *)
+(** {1 Dynamic and any types} *)
+
+type 'a dyn = 'a typ * 'a
+(** The type for dynamic values, i.e., values with a type representation. *)
+
+(** Type representation value with existential variable. *)
+type any = Any : 'a typ -> any
 
 (** Definitions for values with runtime type representation. *)
 module Dyn : sig
-  type 'a t = 'a dyn
+  type 'a t = 'a typ * 'a
   (** The type for dynamic values, i.e., values with a type representation. *)
 
   (** The type for dynamic values with existential variable. *)
