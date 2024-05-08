@@ -35,15 +35,14 @@ module Mapper = struct
     | _ -> false
 
   let record self record_t r1 r2 =
-    let fields = Generics.Record.any_field_list record_t in
-    List.for_all
+    Generics.Record.all
       (fun (Generics.Field.Any field) ->
         let ft = Generics.Field.typ field in
         let v1 = Generics.Field.get r1 field in
         let v2 = Generics.Field.get r2 field in
         let eq = self.map ft in
         eq v1 v2)
-      fields
+      record_t
 
   let variant self variant_t variant1 variant2 =
     let (Generics.Constr.Value (c1, args1)) =

@@ -81,6 +81,20 @@ module Field : sig
 
   val get : 'record -> ('record, 'a) t -> 'a
   (** [get record field] is the value of [field] in [record]. *)
+
+  (** Common list operations for {!type:Field.list}. *)
+  module List : sig
+    type ('record, 'make) t = ('record, 'make) list
+
+    val iter : ('record any -> unit) -> ('record, 'fields) list -> unit
+
+    val fold :
+      ('acc -> 'record any -> 'acc) -> 'acc -> ('record, 'fields) list -> 'acc
+
+    val map : ('record any -> 'a) -> ('record, 'fields) t -> 'a List.t
+    val all : ('record any -> bool) -> ('record, 'fields) t -> bool
+    val any : ('record any -> bool) -> ('record, 'fields) t -> bool
+  end
 end
 
 val field : string -> 'a typ -> ('record -> 'a) -> ('record, 'a) Field.t
@@ -108,18 +122,34 @@ module Record : sig
   val name : ('record, 'make) t -> string
   (** The name of the record type. *)
 
-  val any_field_list : ('record, 'make) t -> 'record Field.any list
-  (** [any_field_list record] is the list of all [record]'s fields represented
-      as a list of {!type:Field.any} to allow for uniform representation of
-      individual fields. *)
-
-  val field_list : ('record, 'make) t -> ('record, 'make) Field.list
-  (** [field_list record] is the list of all [record]'s fields represented as
-      {!type:Field.list} to preserve the types of individual fields. *)
-
   val make : ('record, 'make) t -> 'make
   (** [make record] is a smart constructor function for the [record] represented
       as a function from fields to record of type ['record]. *)
+
+  val fields : ('record, 'fields) t -> ('record, 'fields) Field.list
+  (** [fields record] is the list of all [record]'s fields represented as
+      {!type:Field.list} that preserves the types of individual fields. *)
+
+  val iter : ('record Field.any -> unit) -> ('record, 'fields) t -> unit
+  (** [iter f record] iterates on all [record]'s fields, providing their
+      abstract representation. *)
+
+  val fold :
+    ('acc -> 'record Field.any -> 'acc) -> 'acc -> ('record, 'fields) t -> 'acc
+  (** [fold init f record] folds over all [record]'s fields, providing their
+      abstract representation. *)
+
+  val map : ('record Field.any -> 'a) -> ('record, 'fields) t -> 'a list
+  (** [map f record] is a list created from mapping over all [record]'s fields
+      using [f]. *)
+
+  val all : ('record Field.any -> bool) -> ('record, 'fields) t -> bool
+  (** [all f record] is [true] iff all [record]'s fields satisfy [f], and false
+      otherwise. *)
+
+  val any : ('record Field.any -> bool) -> ('record, 'fields) t -> bool
+  (** [any f record] is [true] iff at least one of [record]'s fields satisfies
+      [f], and false otherwise. *)
 end
 
 val record : string -> ('record, 'make) Field.list -> 'make -> 'record typ

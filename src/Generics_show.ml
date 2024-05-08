@@ -13,18 +13,23 @@ module Mapper = struct
   let bytes x = string (Bytes.to_string x)
 
   let record self record_t r1 =
-    let fields =
-      record_t
-      |> Generics.Record.any_field_list
-      |> List.map (fun (Generics.Field.Any field) ->
-             let typ = Generics.Field.typ field in
-             let show = self.map typ in
-             let v = Generics.Field.get r1 field in
-             String.concat ""
-               [ "  "; Generics.Field.name field; " = "; show v; ";" ])
-      |> String.concat "\n"
-    in
-    String.concat "\n" [ "{ "; fields; "}" ]
+    let buf = Buffer.create 16 in
+    Buffer.add_char buf '{';
+    Generics.Record.iter
+      (fun (Generics.Field.Any field) ->
+        let typ = Generics.Field.typ field in
+        let show = self.map typ in
+        let v = Generics.Field.get r1 field in
+        let v_str = show v in
+        let name = Generics.Field.name field in
+        Buffer.add_char buf ' ';
+        Buffer.add_string buf name;
+        Buffer.add_string buf " = ";
+        Buffer.add_string buf v_str;
+        Buffer.add_string buf "; ")
+      record_t;
+    Buffer.add_char buf '}';
+    Buffer.contents buf
 
   let variant self variant_t variant =
     let (Generics.Constr.Value (constr, args)) =

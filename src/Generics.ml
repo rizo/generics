@@ -54,15 +54,38 @@ module rec Typ : sig
     val name : ('record, 'a) t -> string
     val typ : ('record, 'a) t -> 'a typ
     val get : 'record -> ('record, 'a) t -> 'a
+
+    module List : sig
+      type ('record, 'make) t = ('record, 'make) list
+
+      val iter : ('record any -> unit) -> ('record, 'fields) list -> unit
+
+      val fold :
+        ('acc -> 'record any -> 'acc) -> 'acc -> ('record, 'fields) list -> 'acc
+
+      val map : ('record any -> 'a) -> ('record, 'fields) t -> 'a List.t
+      val all : ('record any -> bool) -> ('record, 'fields) t -> bool
+      val any : ('record any -> bool) -> ('record, 'fields) t -> bool
+    end
   end
 
   module Record : sig
     type ('record, 'fields) t
 
     val name : ('record, 'fields) t -> string
-    val any_field_list : ('record, 'fields) t -> 'record Typ.Field.any list
-    val field_list : ('record, 'fields) t -> ('record, 'fields) Typ.Field.list
     val make : ('record, 'fields) t -> 'fields
+    val fields : ('record, 'fields) t -> ('record, 'fields) Typ.Field.list
+    val iter : ('record Typ.Field.any -> unit) -> ('record, 'fields) t -> unit
+    val map : ('record Typ.Field.any -> 'a) -> ('record, 'fields) t -> 'a list
+
+    val fold :
+      ('acc -> 'record Typ.Field.any -> 'acc) ->
+      'acc ->
+      ('record, 'fields) t ->
+      'acc
+
+    val all : ('record Typ.Field.any -> bool) -> ('record, 'fields) t -> bool
+    val any : ('record Typ.Field.any -> bool) -> ('record, 'fields) t -> bool
   end
 
   module Constr : sig
@@ -136,27 +159,74 @@ end = struct
     let typ t = t.typ
     let get r (field : ('record, 'a) t) = field.get r
 
-    let rec any_list :
-        type record fields. (record, fields) list -> record any List.t =
-     fun fields ->
-      match fields with
-      | [] -> []
-      | field :: fields -> Any field :: any_list fields
+    module List = struct
+      type ('record, 'fields) t = ('record, 'fields) list
+
+      let rec iter :
+          type record fields.
+          (record any -> unit) -> (record, fields) list -> unit =
+       fun f fields ->
+        match fields with
+        | [] -> ()
+        | field :: fields' ->
+          f (Any field);
+          iter f fields'
+
+      let rec fold :
+          type record fields.
+          ('acc -> record any -> 'acc) -> 'acc -> (record, fields) list -> 'acc
+          =
+       fun f acc fields ->
+        match fields with
+        | [] -> acc
+        | field :: fields' ->
+          let acc' = f acc (Any field) in
+          fold f acc' fields'
+
+      let rec map :
+          type record fields.
+          (record any -> 'a) -> (record, fields) list -> 'a List.t =
+       fun f fields ->
+        match fields with
+        | [] -> []
+        | field :: fields' ->
+          let x = f (Any field) in
+          x :: map f fields'
+
+      let rec all :
+          type record fields.
+          (record any -> bool) -> (record, fields) list -> bool =
+       fun f fields ->
+        match fields with
+        | [] -> true
+        | field :: fields' -> f (Any field) && all f fields'
+
+      let rec any :
+          type record fields.
+          (record any -> bool) -> (record, fields) list -> bool =
+       fun f fields ->
+        match fields with
+        | [] -> false
+        | field :: fields' -> f (Any field) || any f fields'
+    end
   end
 
   module Record = struct
     type ('record, 'fields) t = {
       tid : 'record tid;
-      fields : 'record Field.any list;
-      fields' : ('record, 'fields) Field.list;
+      fields : ('record, 'fields) Field.list;
       make : 'fields;
       witness : 'record Witness.t;
     }
 
     let name t = t.tid.name
-    let any_field_list t = t.fields
-    let field_list t = t.fields'
+    let fields t = t.fields
     let make t = t.make
+    let iter f t = Field.List.iter f t.fields
+    let fold f init t = Field.List.fold f init t.fields
+    let map f t = Field.List.map f t.fields
+    let all f t = Field.List.all f t.fields
+    let any f t = Field.List.any f t.fields
   end
 
   module Constr = struct
@@ -206,15 +276,8 @@ end = struct
   let field name typ get = { Field.name; typ; get }
 
   let record name fields make =
-    let any_fields = Field.any_list fields in
     Typ.Record
-      {
-        Record.tid = Tid.make name;
-        fields = any_fields;
-        fields' = fields;
-        make;
-        witness = Witness.make ();
-      }
+      { Record.tid = Tid.make name; fields; make; witness = Witness.make () }
 
   let constr name make = { Constr.name; make }
 
@@ -251,6 +314,18 @@ include Typ
 
 type 'a dyn = 'a typ * 'a
 
+module Dyn = struct
+  type 'a t = 'a dyn
+  type any = Any : 'a dyn -> any
+
+  let typ (t, _) = t
+  let value (_, v) = v
+end
+
+type ('a, 'b) equal = ('a, 'b) Witness.equal = Equal : ('a, 'a) equal
+
+(* Stadnard types *)
+
 let int = Typ.Int
 let int32 = Typ.Int32
 let int64 = Typ.Int64
@@ -284,15 +359,7 @@ let result ok_t error_t =
     [ Typ.Constr.Any ok_constr; Typ.Constr.Any error_constr ]
     value
 
-module Dyn = struct
-  type 'a t = 'a dyn
-  type any = Any : 'a dyn -> any
-
-  let typ (t, _) = t
-  let value (_, v) = v
-end
-
-type ('a, 'b) equal = ('a, 'b) Witness.equal = Equal : ('a, 'a) equal
+(* Mapper *)
 
 module type Mapper = sig
   type 'a t
